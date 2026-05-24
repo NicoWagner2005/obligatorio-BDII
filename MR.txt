@@ -1,5 +1,6 @@
-UsuarioGeneral(mail, fechaRegistro, estadoIdentidad)
-    PK(mail)
+UsuarioGeneral(mailUsuario, fechaRegistro, estadoIdentidad)
+    PK(mailUsuario)
+    FK(mailUsuario) -> Usuario(mail)
 
 Venta(idVenta, mailComprador, estado, tasaComision, montoTotal)
     PK(idVenta)
@@ -20,11 +21,12 @@ TokenQR(idTokenQR, idEntrada, fechaExpiracion)
     PK(idTokenQR)
     FK(idEntrada) -> Entrada(idEntrada)
 
-ValidacionAcceso(idValidacion, idTokenQR, idEntrada, idDispositivo, nroLegajo) PK(idValidacion)
+ValidacionAcceso(idValidacion, idTokenQR, idEntrada, idDispositivo, mailFuncionario)
+    PK(idValidacion)
     FK(idTokenQR) -> TokenQR(idTokenQR)
     FK(idEntrada) -> Entrada(idEntrada)
     FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
-    FK(nroLegajo) -> Funcionario(nroLegajo)
+    FK(mailFuncionario) -> Funcionario(mailFuncionario)
 
 Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud) 
     PK(idTransferencia)
@@ -32,3 +34,29 @@ Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado,
     FK(mailSolicitante) -> UsuarioGeneral(mail) 
     FK(mailReceptor) -> UsuarioGeneral(mail)
 
+Usuario(mail, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
+    PK(mail)
+    AK(nroDocumento, tipoDocumento, paisDocumento)
+
+TelefonosUsuario(mailUsuario, telefono)
+    PK(mailUsuario, telefono)
+    FK(mailUsuario) -> Usuario(mail)
+
+Funcionario(mailFuncionario, nroLegajo, idDispositivo)
+    PK(mailFuncionario)
+    AK(nroLegajo)
+    FK(mailFuncionario) -> Usuario(mail)
+    FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
+
+FuncionarioAsignadoASectorEnEvento(mailFuncionario, idEvento, idEstadio, idSector)
+    PK(mailFuncionario, idEvento, idEstadio, idSector)
+    FK(mailFuncionario) -> Funcionario(mailFuncionario)
+    FK(idEvento) -> Evento(idEvento)
+    FK(idEstadio, idSector) -> Sector(idEstadio, idSector)
+
+Administrador(mailAdministrador, fechaAsignacion)
+    PK(mailAdministrador)
+    FK(mailAdministrador) -> Usuario(mail)
+
+DispositivoEscaneo(idDispositivo)
+    PK(idDispositivo)
