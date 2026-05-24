@@ -1,0 +1,34 @@
+UsuarioGeneral(mail, fechaRegistro, estadoIdentidad)
+    PK(mail)
+
+Venta(idVenta, mailComprador, estado, tasaComision, montoTotal)
+    PK(idVenta)
+    FK(mailComprador) -> UsuarioGeneral(mail)
+
+DetalleVenta(idVenta, nroLinea, idSector, idEvento, cantidad, precioUnitario, subTotal)
+    PK(idVenta, nroLinea)
+    FK(idVenta) -> Venta(idVenta)
+    FK(idSector) -> Sector(idSector)
+    FK(idEvento) -> Evento(idEvento)
+
+Entrada(idEntrada, idVenta, nroLinea, mailPoseedor)
+    PK(idEntrada)
+    FK(idVenta, nroLinea) -> DetalleVenta(idVenta, nroLinea) 
+    FK(mailPoseedor) -> UsuarioGeneral(mail)
+
+TokenQR(idTokenQR, idEntrada, fechaExpiracion)
+    PK(idTokenQR)
+    FK(idEntrada) -> Entrada(idEntrada)
+
+ValidacionAcceso(idValidacion, idTokenQR, idEntrada, idDispositivo, nroLegajo) PK(idValidacion)
+    FK(idTokenQR) -> TokenQR(idTokenQR)
+    FK(idEntrada) -> Entrada(idEntrada)
+    FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
+    FK(nroLegajo) -> Funcionario(nroLegajo)
+
+Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud) 
+    PK(idTransferencia)
+    FK(idEntrada) -> Entrada(idEntrada)
+    FK(mailSolicitante) -> UsuarioGeneral(mail) 
+    FK(mailReceptor) -> UsuarioGeneral(mail)
+
