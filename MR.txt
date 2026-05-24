@@ -45,6 +45,10 @@ Estadio(idEstadio, nombre, nombrePaisSede)
 	PK(idEstadio)
 	FK(nombrePaisSede) -> PaisSede(nombre)
 
+Sector(idEstadio, idSector, capacidadMax, habilitado)
+    PK(idEstadio, idSector)
+    FK(idEstadio) -> Estadio(idEstadio)
+    
 Evento(idEvento, fechaHora, documentoAdmin, idEstadio)
 	PK(idEvento)
 	FK(documentoAdmin) -> Administrador(documento)
