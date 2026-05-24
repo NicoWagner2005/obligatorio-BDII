@@ -32,3 +32,32 @@ Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado,
     FK(mailSolicitante) -> UsuarioGeneral(mail) 
     FK(mailReceptor) -> UsuarioGeneral(mail)
 
+PaisSede(nombre)
+	PK(nombre)
+
+AdministradorAsignado_aPaisSede(documentoAdmin, nombrePaisSede)
+	PK(documentoAdmin)
+	FK(documentoAdmin) -> Administrador(documento)
+	FK(nombrePaisSede) -> PaisSede(nombre)
+Estadio(idEstadio, nombre, nombrePaisSede)
+	PK(idEstadio)
+	FK(nombrePaisSede) -> PaisSede(nombre)
+Evento(idEvento, fechaHora, documentoAdmin, idEstadio)
+	PK(idEvento)
+	FK(documentoAdmin) -> Administrador(documento)
+	FK(idEstadio) -> Estadio(idEstadio)
+Equipo(idEquipo, nombre)
+	PK(idEquipo)
+EquipoJuegaEvento(idEquipo, idEvento, rol)
+	PK(idEquipo, idEvento)
+	FK(idEquipo) -> Equipo(idEquipo)
+	FK(idEvento) -> Evento(idEvento)
+EventoHabilitaSector(idEvento, idEstadio, idSector)
+	PK(idEvento, idEstadio, idSector)
+	FK(idEvento) -> Evento(idEvento)
+	FK(idEstadio) -> Sector(idEstadio)
+	FK(idSector) -> Sector(idSector)
+
+	
+
+
