@@ -21,11 +21,10 @@ TokenQR(idTokenQR, idEntrada, fechaExpiracion)
     PK(idTokenQR)
     FK(idEntrada) -> Entrada(idEntrada)
 
-ValidacionAcceso(idValidacion, idTokenQR, idEntrada, idDispositivo, mailFuncionario)
+ValidacionAcceso(idValidacion, idTokenQR, idEntrada, mailFuncionario)
     PK(idValidacion)
     FK(idTokenQR) -> TokenQR(idTokenQR)
     FK(idEntrada) -> Entrada(idEntrada)
-    FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
     FK(mailFuncionario) -> Funcionario(mailFuncionario)
 
 Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud) 
