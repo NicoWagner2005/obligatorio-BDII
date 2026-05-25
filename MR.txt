@@ -13,23 +13,36 @@ Administrador(mailAdministrador, fechaAsignacion)
     FK(mailAdministrador) -> Usuario(mail)
 
 UsuarioGeneral(mailUsuario, fechaRegistro, estadoIdentidad)
-    PK(mailUsuario)
-    FK(mailUsuario) -> Usuario(mail)
+PK(mailUsuario)
+FK(mailUsuario) -> Usuario(mail)
+-- fechaRegistro NOT NULL
+-- estadoIdentidad NOT NULL
 
 Venta(idVenta, mailComprador, estado, tasaComision, montoTotal, fecha)
-    PK(idVenta)
-    FK(mailComprador) -> UsuarioGeneral(mail)
+PK(idVenta)
+FK(mailComprador) -> UsuarioGeneral(mailUsuario)
+-- mailComprador NOT NULL
+-- estado NOT NULL
+-- fecha NOT NULL
 
 DetalleVenta(idVenta, nroLinea, idEvento, idEstadio, idSector, cantidad, subTotal)
-    PK(idVenta, nroLinea)
-    FK(idEvento, idEstadio, idSector) -> EventoHabilitaSector(idEvento, idEstadio, idSector) # La compra de la entrada es para un sector de un evento en un estadio
+PK(idVenta, nroLinea)
+FK(idVenta) -> Venta(idVenta) # La compra de la entrada es para un sector de un evento en un estadio
+FK(idEvento, idEstadio, idSector) -> EventoHabilitaSector(idEvento, idEstadio, idSector)
+-- idEvento NOT NULL
+-- idEstadio NOT NULL
+-- idSector NOT NULL
+-- cantidad NOT NULL
+RNE: cantidad ≤ 5
 
 =====================================================================================
-Entrada(idEntrada, mailPoseedor, idEstadio, idSector, idVenta, nroLineaDetalleVenta)
-    PK(idEntrada)
-    FK(mailPoseedor) -> UsuarioGeneral(mailUsuario)
-    FK(idEstadio, idSector) -> Sector(idEstadio, idSector)
-    FK(idVenta, nroLineaDetalleVenta) -> DetalleVenta(idVenta, nroLinea)
+Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
+PK(idEntrada)
+FK(mailPoseedor) -> UsuarioGeneral(mailUsuario)
+FK(idVenta, nroLineaDetalleVenta) -> DetalleVenta(idVenta, nroLinea)
+-- mailPoseedor NOT NULL
+-- idVenta NOT NULL
+-- nroLineaDetalleVenta NOT NULL
 
 idEntrada -> (idVenta, nroLineaDetalleVenta)
 (idVenta, nroLineaDetalleVenta) -> (idEstadio, idSector)
@@ -44,8 +57,10 @@ Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
 
 
 TokenQR(idTokenQR, idEntrada, fechaExpiracion)
-    PK(idTokenQR)
-    FK(idEntrada) -> Entrada(idEntrada)
+PK(idTokenQR)
+FK(idEntrada) -> Entrada(idEntrada)
+-- idEntrada NOT NULL
+-- fechaExpiracion NOT NULL
 
 =====================================================================================
 ValidacionAcceso(idValidacion, idTokenQR, idEntrada, mailFuncionario, idDispositivo)
@@ -70,11 +85,18 @@ ValidacionAcceso(idValidacion, idTokenQR, mailFuncionario)
     FK(mailFuncionario) -> Funcionario(mailFuncionario)
 =====================================================================================
 
-Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud) 
-    PK(idTransferencia)
-    FK(idEntrada) -> Entrada(idEntrada)
-    FK(mailSolicitante) -> UsuarioGeneral(mailUsuario) 
-    FK(mailReceptor) -> UsuarioGeneral(mailUsuario)
+Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud)
+PK(idTransferencia)
+FK(idEntrada) -> Entrada(idEntrada)
+FK(mailSolicitante) -> UsuarioGeneral(mailUsuario)
+FK(mailReceptor) -> UsuarioGeneral(mailUsuario)
+-- idEntrada NOT NULL
+-- mailSolicitante NOT NULL
+-- mailReceptor NOT NULL
+-- estado NOT NULL
+-- fechaSolicitud NOT NULL
+RNE: Una entrada puede transferirse como máximo 3 veces
+RNE: mailSolicitante ≠ mailReceptor
 
 PaisSede(nombre)
 	PK(nombre)
