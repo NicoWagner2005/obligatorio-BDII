@@ -2,11 +2,10 @@ Usuario(mail, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localid
     PK(mail)
     AK(nroDocumento, tipoDocumento, paisDocumento)
 
-Funcionario(mailFuncionario, nroLegajo, idDispositivo)
+Funcionario(mailFuncionario, nroLegajo)
     PK(mailFuncionario)
     AK(nroLegajo)
     FK(mailFuncionario) -> Usuario(mail)
-    FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
 
 Administrador(mailAdministrador, fechaAsignacion)
     PK(mailAdministrador)
@@ -56,34 +55,12 @@ Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
 =====================================================================================
 
 
-TokenQR(idTokenQR, idEntrada, fechaExpiracion)
+TokenQR(idTokenQR, idEntrada, fechaExpiracion, idDispositivo)
 PK(idTokenQR)
 FK(idEntrada) -> Entrada(idEntrada)
+FK(idDispositivo) -> Dispositivo(idDispositivo)
 -- idEntrada NOT NULL
 -- fechaExpiracion NOT NULL
-
-=====================================================================================
-ValidacionAcceso(idValidacion, idTokenQR, idEntrada, mailFuncionario, idDispositivo)
-    PK(idValidacion)
-    FK(idTokenQR) -> TokenQR(idTokenQR)
-    FK(idEntrada) -> Entrada(idEntrada)
-    FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
-    FK(mailFuncionario) -> Funcionario(mailFuncionario)
-
-idValidacion -> mailFuncionario
-mailFuncionario -> idDispositivo
-Rompe 3era forma normal
-
-idValidacion -> idTokenQR
-idTokenQR -> idEntrada
-Rompe 3era forma normal
-
-Normalizado:
-ValidacionAcceso(idValidacion, idTokenQR, mailFuncionario)
-    PK(idValidacion)
-    FK(idTokenQR) -> TokenQR(idTokenQR)
-    FK(mailFuncionario) -> Funcionario(mailFuncionario)
-=====================================================================================
 
 Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud)
 PK(idTransferencia)
@@ -141,5 +118,6 @@ FuncionarioAsignadoASectorEnEvento(mailFuncionario, idEvento, idEstadio, idSecto
     FK(mailFuncionario) -> Funcionario(mailFuncionario)
     FK(idEvento, idEstadio, idSector) -> EventoHabilitaSector(idEvento, idEstadio, idSector)
 
-DispositivoEscaneo(idDispositivo)
+DispositivoEscaneo(idDispositivo, mailFuncionario)
     PK(idDispositivo)
+    FK(mailFuncionario) -> Funcionario(mailFuncionario)
