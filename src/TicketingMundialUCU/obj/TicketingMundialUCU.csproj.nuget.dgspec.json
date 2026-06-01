@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/backend/TicketingMundialUCU/TicketingMundialUCU.csproj": {}
+    "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/src/TicketingMundialUCU/TicketingMundialUCU.csproj": {}
   },
   "projects": {
-    "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/backend/TicketingMundialUCU/TicketingMundialUCU.csproj": {
+    "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/src/TicketingMundialUCU/TicketingMundialUCU.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/backend/TicketingMundialUCU/TicketingMundialUCU.csproj",
+        "projectUniqueName": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/src/TicketingMundialUCU/TicketingMundialUCU.csproj",
         "projectName": "TicketingMundialUCU",
-        "projectPath": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/backend/TicketingMundialUCU/TicketingMundialUCU.csproj",
+        "projectPath": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/src/TicketingMundialUCU/TicketingMundialUCU.csproj",
         "packagesPath": "/Users/nicolaswagner/.nuget/packages/",
-        "outputPath": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/backend/TicketingMundialUCU/obj/",
+        "outputPath": "/Users/nicolaswagner/Facultad/5to_semestre/BDII/obligatorio-BDII/src/TicketingMundialUCU/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/nicolaswagner/.nuget/NuGet/NuGet.Config"

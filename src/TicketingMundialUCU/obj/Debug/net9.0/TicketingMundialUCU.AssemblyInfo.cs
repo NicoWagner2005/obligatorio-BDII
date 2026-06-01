@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TicketingMundialUCU")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7592fbb7cbcc4d009d68fe78d2f46fd479d8a3f0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+51f41208ec5194a58c496edb03c9b684f46a7f1c")]
 [assembly: System.Reflection.AssemblyProductAttribute("TicketingMundialUCU")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TicketingMundialUCU")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
