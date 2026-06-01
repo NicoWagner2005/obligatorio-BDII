@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using TicketingMundialUCU.Components;
 using TicketingMundialUCU.Components.Account;
 using TicketingMundialUCU.Data;
+using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +36,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
+builder.Services.AddScoped<UserRepository>();
+builder.Services.AddScoped<UserPhoneRepository>();
+builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();

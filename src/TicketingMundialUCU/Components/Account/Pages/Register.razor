@@ -6,25 +6,25 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
 @using TicketingMundialUCU.Data
-
+@using TicketingMundialUCU.Services
 @inject UserManager<ApplicationUser> UserManager
-@inject IUserStore<ApplicationUser> UserStore
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject UserRegistrationService UserRegistrationService
 
 <PageTitle>Register</PageTitle>
 
-<h1>Register</h1>
+<h1>Registro</h1>
 
 <div class="row">
     <div class="col-lg-6">
         <StatusMessage Message="@Message" />
         <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
+            <h2>Crear una nueva cuenta.</h2>
             <hr />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
@@ -33,21 +33,66 @@
                 <ValidationMessage For="() => Input.Email" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.NroDocumento" id="Input.NroDocumento" class="form-control" aria-required="true" placeholder="Número de documento" />
+                <label for="Input.NroDocumento">Número de documento</label>
+                <ValidationMessage For="() => Input.NroDocumento" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.TipoDocumento" id="Input.TipoDocumento" class="form-control" aria-required="true" placeholder="Tipo de documento" />
+                <label for="Input.TipoDocumento">Tipo de documento</label>
+                <ValidationMessage For="() => Input.TipoDocumento" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.PaisDocumento" id="Input.PaisDocumento" class="form-control" aria-required="true" placeholder="País del documento" />
+                <label for="Input.PaisDocumento">País del documento</label>
+                <ValidationMessage For="() => Input.PaisDocumento" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.PaisDireccion" id="Input.PaisDireccion" class="form-control" aria-required="true" placeholder="País de residencia" />
+                <label for="Input.PaisDireccion">País de residencia</label>
+                <ValidationMessage For="() => Input.PaisDireccion" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Localidad" id="Input.Localidad" class="form-control" aria-required="true" placeholder="Localidad" />
+                <label for="Input.Localidad">Localidad</label>
+                <ValidationMessage For="() => Input.Localidad" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Calle" id="Input.Calle" class="form-control" aria-required="true" placeholder="Calle" />
+                <label for="Input.Calle">Calle</label>
+                <ValidationMessage For="() => Input.Calle" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.NroDireccion" id="Input.NroDireccion" class="form-control" aria-required="true" placeholder="Número de puerta" />
+                <label for="Input.NroDireccion">Número de puerta</label>
+                <ValidationMessage For="() => Input.NroDireccion" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.CodigoPostal" id="Input.CodigoPostal" class="form-control" aria-required="true" placeholder="Código postal" />
+                <label for="Input.CodigoPostal">Código postal</label>
+                <ValidationMessage For="() => Input.CodigoPostal" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Telefono" id="Input.Telefono" class="form-control" placeholder="Teléfono" />
+                <label for="Input.Telefono">Teléfono</label>
+                <ValidationMessage For="() => Input.Telefono" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
                 <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
+                <label for="Input.Password">Contraseña</label>
                 <ValidationMessage For="() => Input.Password" class="text-danger" />
             </div>
             <div class="form-floating mb-3">
                 <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
+                <label for="Input.ConfirmPassword">Confirmar contraseña</label>
                 <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Registrarse</button>
         </EditForm>
     </div>
     <div class="col-lg-4 col-lg-offset-2">
         <section>
-            <h3>Use another service to register.</h3>
+            <h3>Usar otro servicio para registrarse.</h3>
             <hr />
             <ExternalLoginPicker />
         </section>
@@ -67,12 +112,19 @@
 
     public async Task RegisterUser(EditContext editContext)
     {
-        var user = CreateUser();
-
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        var emailStore = GetEmailStore();
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-        var result = await UserManager.CreateAsync(user, Input.Password);
+        var result = await UserRegistrationService.RegisterGeneralUserAsync(
+            new GeneralUserRegistrationData(
+                Input.Email,
+                Input.Password,
+                Input.NroDocumento,
+                Input.TipoDocumento,
+                Input.PaisDocumento,
+                Input.PaisDireccion,
+                Input.Localidad,
+                Input.Calle,
+                Input.NroDireccion,
+                Input.CodigoPostal,
+                Input.Telefono));
 
         if (!result.Succeeded)
         {
@@ -82,6 +134,8 @@
 
         Logger.LogInformation("User created a new account with password.");
 
+        var user = await UserManager.FindByEmailAsync(Input.Email)
+            ?? throw new InvalidOperationException("The user was created but could not be loaded by email.");
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -113,28 +167,6 @@
         NavigationManager.NavigateTo(targetUrl, replace: true);
     }
 
-    private ApplicationUser CreateUser()
-    {
-        try
-        {
-            return Activator.CreateInstance<ApplicationUser>();
-        }
-        catch
-        {
-            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
-                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
-        }
-    }
-
-    private IUserEmailStore<ApplicationUser> GetEmailStore()
-    {
-        if (!UserManager.SupportsUserEmail)
-        {
-            throw new NotSupportedException("The default UI requires a user store with email support.");
-        }
-        return (IUserEmailStore<ApplicationUser>)UserStore;
-    }
-
     private sealed class InputModel
     {
         [Required]
@@ -143,14 +175,49 @@
         public string Email { get; set; } = "";
 
         [Required]
+        [Display(Name = "Número de documento")]
+        public string NroDocumento { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Tipo de documento")]
+        public string TipoDocumento { get; set; } = "";
+
+        [Required]
+        [Display(Name = "País del documento")]
+        public string PaisDocumento { get; set; } = "";
+
+        [Required]
+        [Display(Name = "País de residencia")]
+        public string PaisDireccion { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Localidad")]
+        public string Localidad { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Calle")]
+        public string Calle { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Número de puerta")]
+        public string NroDireccion { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Código postal")]
+        public string CodigoPostal { get; set; } = "";
+
+        [Display(Name = "Teléfono")]
+        public string Telefono { get; set; } = "";
+
+        [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
         [DataType(DataType.Password)]
-        [Display(Name = "Password")]
+        [Display(Name = "Contraseña")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        [Display(Name = "Confirmar contraseña")]
+        [Compare("Password", ErrorMessage = "La contraseña y su confirmación no coinciden.")]
         public string ConfirmPassword { get; set; } = "";
     }
 }
