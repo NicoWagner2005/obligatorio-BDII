@@ -1,0 +1,21 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView>
+    <Authorized>
+        <PageTitle>Dashboard</PageTitle>
+        <p>You are signed in.</p>
+        <a class="btn btn-primary" href="/dashboard">Go to dashboard</a>
+    </Authorized>
+    <NotAuthorized>
+        <PageTitle>Welcome</PageTitle>
+
+        <h1>Welcome!</h1>
+        <p>Short intro text here.</p>
+
+        <div class="mt-3">
+            <a class="btn btn-primary me-2" href="/Account/Login?returnUrl=/dashboard">Login</a>
+            <a class="btn btn-outline-secondary" href="/Account/Register?returnUrl=/dashboard">Register</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
