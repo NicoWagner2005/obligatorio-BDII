@@ -7,6 +7,7 @@ namespace TicketingMundialUCU.Services;
 
 public sealed class UserRegistrationService(
     UserManager<ApplicationUser> userManager,
+    RoleManager<IdentityRole> roleManager,
     IUserStore<ApplicationUser> userStore,
     UserRepository userRepository,
     UserPhoneRepository userPhoneRepository)
@@ -19,6 +20,14 @@ public sealed class UserRegistrationService(
     private async Task<IdentityResult> UserRegistrationAsync(GeneralUserRegistrationData registrationData)
     {
         var user = CreateUser();
+        if (!UserRoles.IsValid(registrationData.Role))
+        {
+            return IdentityResult.Failed(new IdentityError
+            {
+                Code = "InvalidRole",
+                Description = "El rol seleccionado no es válido."
+            });
+        }
 
         await userStore.SetUserNameAsync(user, registrationData.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
@@ -41,11 +50,26 @@ public sealed class UserRegistrationService(
                 registrationData.Localidad,
                 registrationData.Calle,
                 registrationData.NroDireccion,
-                registrationData.CodigoPostal);
+                registrationData.CodigoPostal,
+                registrationData.Role);
 
             if (!string.IsNullOrWhiteSpace(registrationData.Telefono))
             {
                 await userPhoneRepository.AddAsync(user.Id, registrationData.Telefono);
+            }
+
+            var roleResult = await EnsureRoleAsync(registrationData.Role);
+            if (!roleResult.Succeeded)
+            {
+                await userManager.DeleteAsync(user);
+                return roleResult;
+            }
+
+            var addToRoleResult = await userManager.AddToRoleAsync(user, registrationData.Role);
+            if (!addToRoleResult.Succeeded)
+            {
+                await userManager.DeleteAsync(user);
+                return addToRoleResult;
             }
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -60,6 +84,16 @@ public sealed class UserRegistrationService(
         }
 
         return result;
+    }
+
+    private async Task<IdentityResult> EnsureRoleAsync(string role)
+    {
+        if (await roleManager.RoleExistsAsync(role))
+        {
+            return IdentityResult.Success;
+        }
+
+        return await roleManager.CreateAsync(new IdentityRole(role));
     }
 
     private static ApplicationUser CreateUser()
@@ -109,4 +143,5 @@ public sealed record GeneralUserRegistrationData(
     string Calle,
     string NroDireccion,
     string CodigoPostal,
-    string Telefono);
+    string Telefono,
+    string Role);

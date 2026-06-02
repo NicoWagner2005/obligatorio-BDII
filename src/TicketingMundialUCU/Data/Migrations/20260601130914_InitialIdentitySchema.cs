@@ -86,9 +86,11 @@ namespace TicketingMundialUCU.Migrations
                         CHECK (estado_identidad IN ('PENDIENTE', 'VERIFICADA', 'RECHAZADA'))
                 );
 
+                CREATE SEQUENCE funcionarios_legajo_seq;
+
                 CREATE TABLE funcionarios (
                     usuario_id text NOT NULL,
-                    nro_legajo varchar(16) NOT NULL,
+                    nro_legajo varchar(16) NOT NULL DEFAULT ('FUNC-' || lpad(nextval('funcionarios_legajo_seq')::text, 5, '0')),
 
                     CONSTRAINT pk_funcionarios PRIMARY KEY (usuario_id),
                     CONSTRAINT uq_funcionarios_nro_legajo UNIQUE (nro_legajo),
@@ -286,6 +288,7 @@ namespace TicketingMundialUCU.Migrations
             migrationBuilder.Sql("""
                 DROP TABLE IF EXISTS administradores;
                 DROP TABLE IF EXISTS funcionarios;
+                DROP SEQUENCE IF EXISTS funcionarios_legajo_seq;
                 DROP TABLE IF EXISTS telefonos_usuario;
                 DROP TABLE IF EXISTS usuarios_generales;
                 DROP TABLE IF EXISTS usuarios;
