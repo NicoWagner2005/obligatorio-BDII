@@ -24,6 +24,36 @@ public class UserPhoneRepository(IConfiguration configuration)
         });
     }
 
+    public async Task ReplaceAsync(string userId, string? telefono)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        const string deleteSql = """
+            DELETE FROM "telefonos_usuario"
+            WHERE "usuario_id" = @UserId;
+            """;
+
+        await connection.ExecuteAsync(deleteSql, new { UserId = userId }, transaction);
+
+        if (!string.IsNullOrWhiteSpace(telefono))
+        {
+            const string insertSql = """
+                INSERT INTO "telefonos_usuario" ("usuario_id", "telefono")
+                VALUES (@UserId, @Telefono);
+                """;
+
+            await connection.ExecuteAsync(insertSql, new
+            {
+                UserId = userId,
+                Telefono = telefono
+            }, transaction);
+        }
+
+        await transaction.CommitAsync();
+    }
+
     public async Task<IEnumerable<string>> GetByUserIdAsync(string userId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);

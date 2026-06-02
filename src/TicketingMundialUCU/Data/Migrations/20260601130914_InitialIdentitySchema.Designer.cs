@@ -193,12 +193,6 @@ namespace TicketingMundialUCU.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");
 
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 

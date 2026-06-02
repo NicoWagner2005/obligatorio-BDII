@@ -3,11 +3,13 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
 @using TicketingMundialUCU.Data
+@using TicketingMundialUCU.Data.Repositories
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityUserAccessor UserAccessor
 @inject IdentityRedirectManager RedirectManager
+@inject UserPhoneRepository UserPhoneRepository
 
 <PageTitle>Profile</PageTitle>
 
@@ -48,7 +50,7 @@
     {
         user = await UserAccessor.GetRequiredUserAsync(HttpContext);
         username = await UserManager.GetUserNameAsync(user);
-        phoneNumber = await UserManager.GetPhoneNumberAsync(user);
+        phoneNumber = (await UserPhoneRepository.GetByUserIdAsync(user.Id)).FirstOrDefault();
 
         Input.PhoneNumber ??= phoneNumber;
     }
@@ -57,11 +59,7 @@
     {
         if (Input.PhoneNumber != phoneNumber)
         {
-            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
-            if (!setPhoneResult.Succeeded)
-            {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
-            }
+            await UserPhoneRepository.ReplaceAsync(user.Id, Input.PhoneNumber);
         }
 
         await SignInManager.RefreshSignInAsync(user);
