@@ -121,8 +121,8 @@
 
     public async Task RegisterUser(EditContext editContext)
     {
-        var result = await UserRegistrationService.RegisterGeneralUserAsync(
-            new GeneralUserRegistrationData(
+        var result = await UserRegistrationService.RegisterUserAsync(
+            new UserRegistrationData(
                 Input.Email,
                 Input.Password,
                 Input.NroDocumento,

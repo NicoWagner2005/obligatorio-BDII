@@ -12,12 +12,7 @@ public sealed class UserRegistrationService(
     UserRepository userRepository,
     UserPhoneRepository userPhoneRepository)
 {
-    public Task<IdentityResult> RegisterGeneralUserAsync(GeneralUserRegistrationData registrationData)
-    {
-        return UserRegistrationAsync(registrationData);
-    }
-
-    private async Task<IdentityResult> UserRegistrationAsync(GeneralUserRegistrationData registrationData)
+    public async Task<IdentityResult> RegisterUserAsync(UserRegistrationData registrationData)
     {
         var user = CreateUser();
         if (!UserRoles.IsValid(registrationData.Role))
@@ -132,7 +127,7 @@ public sealed class UserRegistrationService(
     }
 }
 
-public sealed record GeneralUserRegistrationData(
+public sealed record UserRegistrationData(
     string Email,
     string Password,
     string NroDocumento,
