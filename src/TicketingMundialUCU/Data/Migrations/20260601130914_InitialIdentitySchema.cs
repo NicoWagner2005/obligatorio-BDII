@@ -51,6 +51,76 @@ namespace TicketingMundialUCU.Migrations
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                 });
 
+            migrationBuilder.Sql("""
+                CREATE TABLE usuarios (
+                    id text NOT NULL,
+                    nro_documento varchar(64) NOT NULL,
+                    tipo_documento varchar(16) NOT NULL,
+                    pais_documento varchar(32) NOT NULL,
+                    pais_direccion varchar(32) NOT NULL,
+                    localidad varchar(32) NOT NULL,
+                    calle varchar(32) NOT NULL,
+                    nro_direccion varchar(16) NOT NULL,
+                    codigo_postal varchar(16) NOT NULL,
+
+                    CONSTRAINT pk_usuarios PRIMARY KEY (id),
+                    CONSTRAINT fk_usuarios_id
+                        FOREIGN KEY (id)
+                        REFERENCES "AspNetUsers" ("Id")
+                        ON DELETE CASCADE,
+                    CONSTRAINT uq_usuarios_documento
+                        UNIQUE (nro_documento, tipo_documento, pais_documento)
+                );
+
+                CREATE TABLE usuarios_generales (
+                    usuario_id text NOT NULL,
+                    fecha_registro date NOT NULL DEFAULT CURRENT_DATE,
+                    estado_identidad varchar(16) NOT NULL,
+
+                    CONSTRAINT pk_usuarios_generales PRIMARY KEY (usuario_id),
+                    CONSTRAINT fk_usuarios_generales_usuarios
+                        FOREIGN KEY (usuario_id)
+                        REFERENCES usuarios(id)
+                        ON DELETE CASCADE,
+                    CONSTRAINT ck_usuarios_generales_estado_identidad
+                        CHECK (estado_identidad IN ('PENDIENTE', 'VERIFICADA', 'RECHAZADA'))
+                );
+
+                CREATE TABLE funcionarios (
+                    usuario_id text NOT NULL,
+                    nro_legajo varchar(16) NOT NULL,
+
+                    CONSTRAINT pk_funcionarios PRIMARY KEY (usuario_id),
+                    CONSTRAINT uq_funcionarios_nro_legajo UNIQUE (nro_legajo),
+                    CONSTRAINT fk_funcionarios_usuarios
+                        FOREIGN KEY (usuario_id)
+                        REFERENCES usuarios(id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE TABLE administradores (
+                    usuario_id text NOT NULL,
+                    fecha_asignacion date NOT NULL,
+
+                    CONSTRAINT pk_administradores PRIMARY KEY (usuario_id),
+                    CONSTRAINT fk_administradores_usuarios
+                        FOREIGN KEY (usuario_id)
+                        REFERENCES usuarios(id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE TABLE telefonos_usuario (
+                    usuario_id text NOT NULL,
+                    telefono varchar(20) NOT NULL,
+
+                    CONSTRAINT pk_telefonos_usuario PRIMARY KEY (usuario_id, telefono),
+                    CONSTRAINT fk_telefonos_usuario_usuarios
+                        FOREIGN KEY (usuario_id)
+                        REFERENCES usuarios(id)
+                        ON DELETE CASCADE
+                );
+                """);
+
             migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
                 columns: table => new
@@ -212,6 +282,14 @@ namespace TicketingMundialUCU.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUserTokens");
+
+            migrationBuilder.Sql("""
+                DROP TABLE IF EXISTS administradores;
+                DROP TABLE IF EXISTS funcionarios;
+                DROP TABLE IF EXISTS telefonos_usuario;
+                DROP TABLE IF EXISTS usuarios_generales;
+                DROP TABLE IF EXISTS usuarios;
+                """);
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

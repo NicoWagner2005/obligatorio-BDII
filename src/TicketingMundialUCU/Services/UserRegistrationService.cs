@@ -11,7 +11,12 @@ public sealed class UserRegistrationService(
     UserRepository userRepository,
     UserPhoneRepository userPhoneRepository)
 {
-    public async Task<IdentityResult> RegisterGeneralUserAsync(GeneralUserRegistrationData registrationData)
+    public Task<IdentityResult> RegisterGeneralUserAsync(GeneralUserRegistrationData registrationData)
+    {
+        return UserRegistrationAsync(registrationData);
+    }
+
+    private async Task<IdentityResult> UserRegistrationAsync(GeneralUserRegistrationData registrationData)
     {
         var user = CreateUser();
 
@@ -28,7 +33,7 @@ public sealed class UserRegistrationService(
         try
         {
             await userRepository.CreateAsync(
-                registrationData.Email,
+                user.Id,
                 registrationData.NroDocumento,
                 registrationData.TipoDocumento,
                 registrationData.PaisDocumento,
@@ -40,7 +45,7 @@ public sealed class UserRegistrationService(
 
             if (!string.IsNullOrWhiteSpace(registrationData.Telefono))
             {
-                await userPhoneRepository.AddAsync(registrationData.Email, registrationData.Telefono);
+                await userPhoneRepository.AddAsync(user.Id, registrationData.Telefono);
             }
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)

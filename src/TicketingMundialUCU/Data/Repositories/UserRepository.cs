@@ -9,7 +9,7 @@ public class UserRepository(IConfiguration configuration)
         configuration.GetConnectionString("DefaultConnection")!;
 
     public async Task CreateAsync(
-        string email,
+        string identityUserId,
         string nroDocumento,
         string tipoDocumento,
         string paisDocumento,
@@ -23,14 +23,14 @@ public class UserRepository(IConfiguration configuration)
 
         const string sql = """
             INSERT INTO "usuarios"
-                ("email", "nro_documento", "tipo_documento", "pais_documento", "pais_direccion", "localidad", "calle", "nro_direccion", "codigo_postal")
+                ("id", "nro_documento", "tipo_documento", "pais_documento", "pais_direccion", "localidad", "calle", "nro_direccion", "codigo_postal")
             VALUES
-                (@Email, @NroDocumento, @TipoDocumento, @PaisDocumento, @PaisDireccion, @Localidad, @Calle, @NroDireccion, @CodigoPostal);
+                (@IdentityUserId, @NroDocumento, @TipoDocumento, @PaisDocumento, @PaisDireccion, @Localidad, @Calle, @NroDireccion, @CodigoPostal);
             """;
 
         await connection.ExecuteAsync(sql, new
         {
-            Email = email,
+            IdentityUserId = identityUserId,
             NroDocumento = nroDocumento,
             TipoDocumento = tipoDocumento,
             PaisDocumento = paisDocumento,

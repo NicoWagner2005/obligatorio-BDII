@@ -8,48 +8,48 @@ public class UserPhoneRepository(IConfiguration configuration)
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
 
-    public async Task AddAsync(string email, string telefono)
+    public async Task AddAsync(string userId, string telefono)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
 
         const string sql = """
-            INSERT INTO "telefonos_usuario" ("email", "telefono")
-            VALUES (@Email, @Telefono);
+            INSERT INTO "telefonos_usuario" ("usuario_id", "telefono")
+            VALUES (@UserId, @Telefono);
             """;
 
         await connection.ExecuteAsync(sql, new
         {
-            Email = email,
+            UserId = userId,
             Telefono = telefono
         });
     }
 
-    public async Task<IEnumerable<string>> GetByUserEmailAsync(string email)
+    public async Task<IEnumerable<string>> GetByUserIdAsync(string userId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
 
         const string sql = """
             SELECT "telefono"
             FROM "telefonos_usuario"
-            WHERE "email" = @Email
+            WHERE "usuario_id" = @UserId
             ORDER BY "telefono";
             """;
 
-        return await connection.QueryAsync<string>(sql, new { Email = email });
+        return await connection.QueryAsync<string>(sql, new { UserId = userId });
     }
 
-    public async Task DeleteAsync(string email, string telefono)
+    public async Task DeleteAsync(string userId, string telefono)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
 
         const string sql = """
             DELETE FROM "telefonos_usuario"
-            WHERE "email" = @Email AND "telefono" = @Telefono;
+            WHERE "usuario_id" = @UserId AND "telefono" = @Telefono;
             """;
 
         await connection.ExecuteAsync(sql, new
         {
-            Email = email,
+            UserId = userId,
             Telefono = telefono
         });
     }

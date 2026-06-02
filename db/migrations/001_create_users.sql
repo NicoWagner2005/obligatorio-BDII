@@ -1,15 +1,19 @@
 CREATE TABLE usuarios (
-    email varchar(64) NOT NULL,
+    id text NOT NULL,
     nro_documento varchar(64) NOT NULL,
     tipo_documento varchar(16) NOT NULL,
     pais_documento varchar(32) NOT NULL,
     pais_direccion varchar(32) NOT NULL,
     localidad varchar(32) NOT NULL,
     calle varchar(32) NOT NULL,
-    nro_direccion varchar(4) NOT NULL,
-    codigo_postal varchar(5) NOT NULL,
+    nro_direccion varchar(16) NOT NULL,
+    codigo_postal varchar(16) NOT NULL,
 
-    CONSTRAINT pk_usuarios PRIMARY KEY (email),
+    CONSTRAINT pk_usuarios PRIMARY KEY (id),
+    CONSTRAINT fk_usuarios_id
+        FOREIGN KEY (id)
+        REFERENCES "AspNetUsers" ("Id")
+        ON DELETE CASCADE,
     CONSTRAINT uq_usuarios_documento
         UNIQUE (nro_documento, tipo_documento, pais_documento)
 );

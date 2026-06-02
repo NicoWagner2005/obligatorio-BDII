@@ -1,26 +1,56 @@
-Usuario(mail, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
-    PK(mail)
+AspNetUsers(Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed, PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed, TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount)
+    PK(Id)
+    AK(NormalizedUserName)
+
+AspNetRoles(Id, Name, NormalizedName, ConcurrencyStamp)
+    PK(Id)
+    AK(NormalizedName)
+
+AspNetUserClaims(Id, UserId, ClaimType, ClaimValue)
+    PK(Id)
+    FK(UserId) -> AspNetUsers(Id)
+
+AspNetRoleClaims(Id, RoleId, ClaimType, ClaimValue)
+    PK(Id)
+    FK(RoleId) -> AspNetRoles(Id)
+
+AspNetUserLogins(LoginProvider, ProviderKey, ProviderDisplayName, UserId)
+    PK(LoginProvider, ProviderKey)
+    FK(UserId) -> AspNetUsers(Id)
+
+AspNetUserRoles(UserId, RoleId)
+    PK(UserId, RoleId)
+    FK(UserId) -> AspNetUsers(Id)
+    FK(RoleId) -> AspNetRoles(Id)
+
+AspNetUserTokens(UserId, LoginProvider, Name, Value)
+    PK(UserId, LoginProvider, Name)
+    FK(UserId) -> AspNetUsers(Id)
+
+Usuario(idUsuario, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
+    PK(idUsuario)
     AK(nroDocumento, tipoDocumento, paisDocumento)
+    FK(idUsuario) -> AspNetUsers(Id)
 
-Funcionario(mailFuncionario, nroLegajo)
-    PK(mailFuncionario)
+Funcionario(idFuncionario, nroLegajo)
+    PK(idFuncionario)
     AK(nroLegajo)
-    FK(mailFuncionario) -> Usuario(mail)
+    FK(idFuncionario) -> Usuario(idUsuario)
 
-Administrador(mailAdministrador, fechaAsignacion)
-    PK(mailAdministrador)
-    FK(mailAdministrador) -> Usuario(mail)
+Administrador(idAdministrador, fechaAsignacion)
+    PK(idAdministrador)
+    FK(idAdministrador) -> Usuario(idUsuario)
 
-UsuarioGeneral(mailUsuario, fechaRegistro, estadoIdentidad)
-PK(mailUsuario)
-FK(mailUsuario) -> Usuario(mail)
+UsuarioGeneral(idUsuario, fechaRegistro, estadoIdentidad)
+PK(idUsuario)
+FK(idUsuario) -> Usuario(idUsuario)
 -- fechaRegistro NOT NULL
 -- estadoIdentidad NOT NULL
 
-Venta(idVenta, mailComprador, estado, tasaComision, montoTotal, fecha)
+Venta(idVenta, idComprador, estado, tasaComision, montoTotal, fecha)
 PK(idVenta)
-FK(mailComprador) -> UsuarioGeneral(mailUsuario)
--- mailComprador NOT NULL
+FK(idComprador) -> UsuarioGeneral(idUsuario)
+-- idComprador NOT NULL
 -- estado NOT NULL
 -- fecha NOT NULL
 
@@ -35,11 +65,11 @@ FK(idEvento, idEstadio, idSector) -> EventoHabilitaSector(idEvento, idEstadio, i
 RNE: cantidad ≤ 5
 
 =====================================================================================
-Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
+Entrada(idEntrada, idPoseedor, idVenta, nroLineaDetalleVenta)
 PK(idEntrada)
-FK(mailPoseedor) -> UsuarioGeneral(mailUsuario)
+FK(idPoseedor) -> UsuarioGeneral(idUsuario)
 FK(idVenta, nroLineaDetalleVenta) -> DetalleVenta(idVenta, nroLinea)
--- mailPoseedor NOT NULL
+-- idPoseedor NOT NULL
 -- idVenta NOT NULL
 -- nroLineaDetalleVenta NOT NULL
 
@@ -48,9 +78,9 @@ idEntrada -> (idVenta, nroLineaDetalleVenta)
 Rompe 3era forma normal
 
 Normalizado: 
-Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
+Entrada(idEntrada, idPoseedor, idVenta, nroLineaDetalleVenta)
     PK(idEntrada)
-    FK(mailPoseedor) -> UsuarioGeneral(mailUsuario)
+    FK(idPoseedor) -> UsuarioGeneral(idUsuario)
     FK(idVenta, nroLineaDetalleVenta) -> DetalleVenta(idVenta, nroLinea)
 =====================================================================================
 
@@ -58,29 +88,29 @@ Entrada(idEntrada, mailPoseedor, idVenta, nroLineaDetalleVenta)
 TokenQR(idTokenQR, idEntrada, fechaExpiracion, idDispositivo)
 PK(idTokenQR)
 FK(idEntrada) -> Entrada(idEntrada)
-FK(idDispositivo) -> Dispositivo(idDispositivo)
+FK(idDispositivo) -> DispositivoEscaneo(idDispositivo)
 -- idEntrada NOT NULL
 -- fechaExpiracion NOT NULL
 
-Transferencia(idTransferencia, idEntrada, mailSolicitante, mailReceptor, estado, fechaSolicitud)
+Transferencia(idTransferencia, idEntrada, idSolicitante, idReceptor, estado, fechaSolicitud)
 PK(idTransferencia)
 FK(idEntrada) -> Entrada(idEntrada)
-FK(mailSolicitante) -> UsuarioGeneral(mailUsuario)
-FK(mailReceptor) -> UsuarioGeneral(mailUsuario)
+FK(idSolicitante) -> UsuarioGeneral(idUsuario)
+FK(idReceptor) -> UsuarioGeneral(idUsuario)
 -- idEntrada NOT NULL
--- mailSolicitante NOT NULL
--- mailReceptor NOT NULL
+-- idSolicitante NOT NULL
+-- idReceptor NOT NULL
 -- estado NOT NULL
 -- fechaSolicitud NOT NULL
 RNE: Una entrada puede transferirse como máximo 3 veces
-RNE: mailSolicitante ≠ mailReceptor
+RNE: idSolicitante ≠ idReceptor
 
 PaisSede(nombre)
 	PK(nombre)
 
-AdministradorAsignadoAPaisSede(mailAdministrador, nombrePaisSede)
-	PK(mailAdministrador, nombrePaisSede)
-	FK(mailAdministrador) -> Administrador(mailAdministrador)
+AdministradorAsignadoAPaisSede(idAdministrador, nombrePaisSede)
+	PK(idAdministrador, nombrePaisSede)
+	FK(idAdministrador) -> Administrador(idAdministrador)
 	FK(nombrePaisSede) -> PaisSede(nombre)
 
 Estadio(idEstadio, nombre, nombrePaisSede)
@@ -91,9 +121,9 @@ Sector(idEstadio, idSector, capacidadMax)
     PK(idEstadio, idSector)
     FK(idEstadio) -> Estadio(idEstadio)
     
-Evento(idEvento, fechaHora, mailAdministrador, idEstadio)
+Evento(idEvento, fechaHora, idAdministrador, idEstadio)
 	PK(idEvento)
-	FK(mailAdministrador) -> Administrador(mailAdministrador)
+	FK(idAdministrador) -> Administrador(idAdministrador)
 	FK(idEstadio) -> Estadio(idEstadio)
 
 Equipo(idEquipo, nombre)
@@ -109,15 +139,15 @@ EventoHabilitaSector(idEvento, idEstadio, idSector)
 	FK(idEvento) -> Evento(idEvento)
 	FK(idEstadio, idSector) -> Sector(idEstadio, idSector)
 
-TelefonosUsuario(mailUsuario, telefono)
-    PK(mailUsuario, telefono)
-    FK(mailUsuario) -> Usuario(mail)
+TelefonosUsuario(idUsuario, telefono)
+    PK(idUsuario, telefono)
+    FK(idUsuario) -> Usuario(idUsuario)
 
-FuncionarioAsignadoASectorEnEvento(mailFuncionario, idEvento, idEstadio, idSector)
-    PK(mailFuncionario, idEvento, idEstadio, idSector)
-    FK(mailFuncionario) -> Funcionario(mailFuncionario)
+FuncionarioAsignadoASectorEnEvento(idFuncionario, idEvento, idEstadio, idSector)
+    PK(idFuncionario, idEvento, idEstadio, idSector)
+    FK(idFuncionario) -> Funcionario(idFuncionario)
     FK(idEvento, idEstadio, idSector) -> EventoHabilitaSector(idEvento, idEstadio, idSector)
 
-DispositivoEscaneo(idDispositivo, mailFuncionario)
+DispositivoEscaneo(idDispositivo, idFuncionario)
     PK(idDispositivo)
-    FK(mailFuncionario) -> Funcionario(mailFuncionario)
+    FK(idFuncionario) -> Funcionario(idFuncionario)
