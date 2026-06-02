@@ -1,35 +1,59 @@
 ﻿@page "/Account/Manage"
+@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using TicketingMundialUCU.Data
 @using TicketingMundialUCU.Data.Repositories
 
 @inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IdentityUserAccessor UserAccessor
-@inject IdentityRedirectManager RedirectManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserPhoneRepository UserPhoneRepository
 
 <PageTitle>Profile</PageTitle>
 
 <h3>Profile</h3>
-<StatusMessage />
+<StatusMessage Message="@statusMessage" />
 
 <div class="row">
     <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync">
             <DataAnnotationsValidator />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
                 <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
                 <label for="username" class="form-label">Username</label>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
-            </div>
+
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Phone number</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Input.PhoneNumbers.Count; index++)
+                    {
+                        var phoneIndex = index;
+
+                        <tr>
+                            <th scope="row">@(phoneIndex + 1)</th>
+                            <td>
+                                <InputText @bind-Value="Input.PhoneNumbers[phoneIndex]" class="form-control" placeholder="Enter your phone number" />
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-outline-danger" @onclick="() => RemovePhoneNumber(phoneIndex)">Remove</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddPhoneNumber">Add phone number</button>
+            <ValidationMessage For="() => Input.PhoneNumbers" class="text-danger" />
             <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
         </EditForm>
     </div>
@@ -38,38 +62,72 @@
 @code {
     private ApplicationUser user = default!;
     private string? username;
-    private string? phoneNumber;
-
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    [SupplyParameterFromForm]
     private InputModel Input { get; set; } = new();
+    private string? statusMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        user = await UserAccessor.GetRequiredUserAsync(HttpContext);
-        username = await UserManager.GetUserNameAsync(user);
-        phoneNumber = (await UserPhoneRepository.GetByUserIdAsync(user.Id)).FirstOrDefault();
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = await UserManager.GetUserAsync(authenticationState.User)
+            ?? throw new InvalidOperationException("The current user could not be loaded.");
 
-        Input.PhoneNumber ??= phoneNumber;
+        username = await UserManager.GetUserNameAsync(user);
+        var phoneNumbers = (await UserPhoneRepository.GetByUserIdAsync(user.Id)).ToArray();
+        Input.PhoneNumbers = phoneNumbers.Length == 0 ? [""] : phoneNumbers.ToList();
     }
 
     private async Task OnValidSubmitAsync()
     {
-        if (Input.PhoneNumber != phoneNumber)
-        {
-            await UserPhoneRepository.ReplaceAsync(user.Id, Input.PhoneNumber);
-        }
+        await UserPhoneRepository.ReplaceAllAsync(user.Id, Input.GetPhoneNumbers());
 
-        await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        statusMessage = "Your profile has been updated";
     }
 
-    private sealed class InputModel
+    private void AddPhoneNumber()
     {
-        [Phone]
-        [Display(Name = "Phone number")]
-        public string? PhoneNumber { get; set; }
+        Input.PhoneNumbers.Add("");
+    }
+
+    private void RemovePhoneNumber(int index)
+    {
+        Input.PhoneNumbers.RemoveAt(index);
+
+        if (Input.PhoneNumbers.Count == 0)
+        {
+            Input.PhoneNumbers.Add("");
+        }
+    }
+
+    private sealed class InputModel : IValidatableObject
+    {
+        public List<string> PhoneNumbers { get; set; } = [""];
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            var phoneAttribute = new PhoneAttribute();
+            foreach (var phoneNumber in GetPhoneNumbers())
+            {
+                if (phoneNumber.Length > 20)
+                {
+                    yield return new ValidationResult("The phone number cannot exceed 20 characters.", [nameof(PhoneNumbers)]);
+                    yield break;
+                }
+
+                if (!phoneAttribute.IsValid(phoneNumber))
+                {
+                    yield return new ValidationResult("The phone number is not valid.", [nameof(PhoneNumbers)]);
+                    yield break;
+                }
+            }
+        }
+
+        public IReadOnlyCollection<string> GetPhoneNumbers()
+        {
+            return PhoneNumbers
+                .Where(phoneNumber => !string.IsNullOrWhiteSpace(phoneNumber))
+                .Select(phoneNumber => phoneNumber.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
     }
 }

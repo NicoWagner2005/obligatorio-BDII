@@ -26,6 +26,11 @@ public class UserPhoneRepository(IConfiguration configuration)
 
     public async Task ReplaceAsync(string userId, string? telefono)
     {
+        await ReplaceAllAsync(userId, [telefono]);
+    }
+
+    public async Task ReplaceAllAsync(string userId, IEnumerable<string?> telefonos)
+    {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
@@ -37,18 +42,27 @@ public class UserPhoneRepository(IConfiguration configuration)
 
         await connection.ExecuteAsync(deleteSql, new { UserId = userId }, transaction);
 
-        if (!string.IsNullOrWhiteSpace(telefono))
+        var telefonosNormalizados = telefonos
+            .Where(telefono => !string.IsNullOrWhiteSpace(telefono))
+            .Select(telefono => telefono!.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (telefonosNormalizados.Length > 0)
         {
             const string insertSql = """
                 INSERT INTO "telefonos_usuario" ("usuario_id", "telefono")
                 VALUES (@UserId, @Telefono);
                 """;
 
-            await connection.ExecuteAsync(insertSql, new
-            {
-                UserId = userId,
-                Telefono = telefono
-            }, transaction);
+            await connection.ExecuteAsync(
+                insertSql,
+                telefonosNormalizados.Select(telefono => new
+                {
+                    UserId = userId,
+                    Telefono = telefono
+                }),
+                transaction);
         }
 
         await transaction.CommitAsync();
