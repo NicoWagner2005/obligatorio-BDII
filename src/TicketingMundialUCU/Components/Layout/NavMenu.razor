@@ -1,36 +1,38 @@
-﻿@implements IDisposable
-
+@implements IDisposable
 @inject NavigationManager NavigationManager
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">TicketingMundialUCU</a>
-    </div>
+<div class="top-row">
+    <a class="navbar-brand" href="/dashboard">
+        Ticketing Mundial
+        <small>UCU · 2026</small>
+    </a>
 </div>
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
+
+        <div class="nav-item">
             <NavLink class="nav-link" href="/dashboard" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Inicio
             </NavLink>
         </div>
 
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
+                <div class="nav-item">
                     <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span>
+                        @context.User.Identity?.Name
                     </NavLink>
                 </div>
-                <div class="nav-item px-3">
+                <div class="nav-item">
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
                         <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
+                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Cerrar sesión
                         </button>
                     </form>
                 </div>
@@ -39,13 +41,31 @@
 
         <AuthorizeView Roles="general">
             <Authorized>
-                <div class="nav-item px-3">
+                <div class="nav-section">Mis entradas</div>
+                <div class="nav-item">
                     <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Tickets 
+                        <span class="bi bi-ticket-nav-menu" aria-hidden="true"></span> Mis tickets
                     </NavLink>
                 </div>
             </Authorized>
         </AuthorizeView>
+
+        <AuthorizeView Roles="administrador">
+            <Authorized>
+                <div class="nav-section">Administración</div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/admin/estadios">
+                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Estadios
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/admin/eventos">
+                        <span class="bi bi-calendar3-nav-menu" aria-hidden="true"></span> Eventos
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
     </nav>
 </div>
 
@@ -69,4 +89,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

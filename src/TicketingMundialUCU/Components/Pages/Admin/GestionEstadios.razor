@@ -1,0 +1,421 @@
+@page "/admin/estadios"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@attribute [Authorize(Roles = "administrador")]
+@inject EstadioRepository EstadioRepo
+@rendermode InteractiveServer
+
+<PageTitle>Estadios · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Estadios</h1>
+    <p class="page-subtitle">Administración de estadios y capacidades por sector</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+<div class="row g-4 mb-4">
+    <!-- Países sede -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0">Países sede</h6>
+            </div>
+            <div class="card-body">
+                @if (_paises.Any())
+                {
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @foreach (var pais in _paises)
+                        {
+                            <span class="badge rounded-pill bg-light text-dark border fw-normal px-3"
+                                  style="font-size:.8rem">@pais.Nombre</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted small mb-3">Sin países registrados.</p>
+                }
+                <EditForm Model="_nuevoPais" OnValidSubmit="AgregarPaisAsync">
+                    <DataAnnotationsValidator />
+                    <div class="input-group input-group-sm">
+                        <InputText class="form-control" @bind-Value="_nuevoPais.Nombre"
+                                   placeholder="Nuevo país sede" />
+                        <button class="btn btn-primary" type="submit">Agregar</button>
+                    </div>
+                    <ValidationSummary class="text-danger mt-1 small" />
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registrar estadio -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Registrar nuevo estadio</h6>
+            </div>
+            <div class="card-body">
+                <EditForm Model="_nuevoEstadio" OnValidSubmit="RegistrarEstadioAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3 small" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre del estadio</label>
+                            <InputText class="form-control" @bind-Value="_nuevoEstadio.Nombre"
+                                       placeholder="Ej: Estadio Centenario" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">País sede</label>
+                            <InputSelect class="form-select" @bind-Value="_nuevoEstadio.NombrePaisSede">
+                                <option value="">— Seleccionar país —</option>
+                                @foreach (var pais in _paises)
+                                {
+                                    <option value="@pais.Nombre">@pais.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Capacidad máxima por sector</label>
+                            <div class="row g-2">
+                                @foreach (var sector in Sectores)
+                                {
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label d-flex align-items-center gap-2 mb-1">
+                                            <span class="sector-badge sector-@sector">@sector</span>
+                                            <span>Cap. máx.</span>
+                                        </label>
+                                        <InputNumber class="form-control" @bind-Value="_capacidadesNuevo[sector]" min="1" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-primary" type="submit" disabled="@_guardando">
+                                @(_guardando ? "Registrando…" : "Registrar estadio")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de estadios -->
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Estadios registrados</h6>
+        <span class="badge bg-secondary">@_estadios.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_estadios.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay estadios registrados aún.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Estadio</th>
+                        <th>País sede</th>
+                        <th class="text-center">
+                            <span class="sector-badge sector-A">A</span>
+                        </th>
+                        <th class="text-center">
+                            <span class="sector-badge sector-B">B</span>
+                        </th>
+                        <th class="text-center">
+                            <span class="sector-badge sector-C">C</span>
+                        </th>
+                        <th class="text-center">
+                            <span class="sector-badge sector-D">D</span>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in _estadios)
+                    {
+                        var sectores = _sectoresPorEstadio.GetValueOrDefault(e.IdEstadio, []);
+                        <tr>
+                            <td class="fw-semibold">@e.Nombre</td>
+                            <td style="color:#475569;font-size:.875rem">@e.NombrePaisSede</td>
+                            @foreach (var s in Sectores)
+                            {
+                                var cap = sectores.FirstOrDefault(x => x.IdSector == s)?.CapacidadMax;
+                                <td class="text-center">
+                                    @if (cap.HasValue)
+                                    {
+                                        <span class="badge bg-light text-dark border" style="font-size:.8rem">
+                                            @cap.Value.ToString("N0")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#94a3b8">—</span>
+                                    }
+                                </td>
+                            }
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        @onclick="() => IniciarEdicion(e)">
+                                    Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => EliminarEstadioAsync(e.IdEstadio)">
+                                    Eliminar
+                                </button>
+                            </td>
+                        </tr>
+
+                        @if (_estadioEditando?.IdEstadio == e.IdEstadio)
+                        {
+                            <tr class="table-warning">
+                                <td colspan="7" class="py-3 px-4">
+                                    <EditForm Model="_editForm" OnValidSubmit="GuardarEdicionAsync">
+                                        <DataAnnotationsValidator />
+                                        <ValidationSummary class="text-danger mb-2 small" />
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-semibold">Nombre</label>
+                                                <InputText class="form-control form-control-sm"
+                                                           @bind-Value="_editForm.Nombre" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-semibold">País sede</label>
+                                                <InputSelect class="form-select form-select-sm"
+                                                             @bind-Value="_editForm.NombrePaisSede">
+                                                    @foreach (var pais in _paises)
+                                                    {
+                                                        <option value="@pais.Nombre">@pais.Nombre</option>
+                                                    }
+                                                </InputSelect>
+                                            </div>
+                                            @foreach (var s in Sectores)
+                                            {
+                                                <div class="col-6 col-md-1">
+                                                    <label class="form-label small fw-semibold d-flex align-items-center gap-1">
+                                                        <span class="sector-badge sector-@s">@s</span>
+                                                    </label>
+                                                    <InputNumber class="form-control form-control-sm"
+                                                                 @bind-Value="_capacidadesEdit[s]" min="1" />
+                                                </div>
+                                            }
+                                            <div class="col-md-2 d-flex gap-2">
+                                                <button class="btn btn-sm btn-success" type="submit"
+                                                        disabled="@_guardando">
+                                                    Guardar
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" type="button"
+                                                        @onclick="CancelarEdicion">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </EditForm>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly string[] Sectores = ["A", "B", "C", "D"];
+
+    private List<PaisSede> _paises = [];
+    private List<Estadio> _estadios = [];
+    private Dictionary<int, List<Sector>> _sectoresPorEstadio = [];
+
+    private NuevoPaisModel _nuevoPais = new();
+    private NuevoEstadioModel _nuevoEstadio = new();
+    private readonly Dictionary<string, int> _capacidadesNuevo = new()
+    {
+        ["A"] = 100, ["B"] = 100, ["C"] = 100, ["D"] = 100,
+    };
+
+    private Estadio? _estadioEditando;
+    private EditFormModel _editForm = new();
+    private readonly Dictionary<string, int> _capacidadesEdit = new()
+    {
+        ["A"] = 0, ["B"] = 0, ["C"] = 0, ["D"] = 0,
+    };
+
+    private bool _guardando;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync() => await CargarDatosAsync();
+
+    private async Task CargarDatosAsync()
+    {
+        _paises = (await EstadioRepo.GetAllPaisesSedeAsync()).ToList();
+        _estadios = (await EstadioRepo.GetAllEstadiosAsync()).ToList();
+        _sectoresPorEstadio = [];
+        foreach (var estadio in _estadios)
+        {
+            var sectores = await EstadioRepo.GetSectoresByEstadioAsync(estadio.IdEstadio);
+            _sectoresPorEstadio[estadio.IdEstadio] = sectores.ToList();
+        }
+    }
+
+    private void IniciarEdicion(Estadio estadio)
+    {
+        _estadioEditando = estadio;
+        _editForm = new EditFormModel
+        {
+            Nombre = estadio.Nombre,
+            NombrePaisSede = estadio.NombrePaisSede,
+        };
+        var sectores = _sectoresPorEstadio.GetValueOrDefault(estadio.IdEstadio, []);
+        foreach (var s in Sectores)
+            _capacidadesEdit[s] = sectores.FirstOrDefault(x => x.IdSector == s)?.CapacidadMax ?? 100;
+        _errorMessage = null;
+        _successMessage = null;
+    }
+
+    private void CancelarEdicion() => _estadioEditando = null;
+
+    private async Task GuardarEdicionAsync()
+    {
+        if (_estadioEditando is null) return;
+        if (_capacidadesEdit.Values.Any(c => c <= 0))
+        {
+            _errorMessage = "La capacidad de cada sector debe ser mayor a 0.";
+            return;
+        }
+        _guardando = true;
+        try
+        {
+            await EstadioRepo.UpdateEstadioAsync(
+                _estadioEditando.IdEstadio,
+                _editForm.Nombre.Trim(),
+                _editForm.NombrePaisSede,
+                new Dictionary<string, int>(_capacidadesEdit));
+            _estadioEditando = null;
+            await CargarDatosAsync();
+            _successMessage = "Estadio actualizado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al actualizar: {ex.Message}";
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task AgregarPaisAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await EstadioRepo.CreatePaisSedeAsync(_nuevoPais.Nombre.Trim());
+            _nuevoPais = new();
+            await CargarDatosAsync();
+            _successMessage = "País sede agregado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message.Contains("duplicate") || ex.Message.Contains("unique")
+                ? "Ya existe un país sede con ese nombre."
+                : $"Error al agregar país: {ex.Message}";
+        }
+    }
+
+    private async Task RegistrarEstadioAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_nuevoEstadio.NombrePaisSede))
+        {
+            _errorMessage = "Debe seleccionar un país sede.";
+            return;
+        }
+        if (_capacidadesNuevo.Values.Any(c => c <= 0))
+        {
+            _errorMessage = "La capacidad de cada sector debe ser mayor a 0.";
+            return;
+        }
+        _guardando = true;
+        try
+        {
+            await EstadioRepo.CreateEstadioAsync(
+                _nuevoEstadio.Nombre.Trim(),
+                _nuevoEstadio.NombrePaisSede,
+                new Dictionary<string, int>(_capacidadesNuevo));
+            _nuevoEstadio = new();
+            foreach (var key in _capacidadesNuevo.Keys.ToList())
+                _capacidadesNuevo[key] = 100;
+            await CargarDatosAsync();
+            _successMessage = "Estadio registrado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al registrar estadio: {ex.Message}";
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task EliminarEstadioAsync(int idEstadio)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        if (_estadioEditando?.IdEstadio == idEstadio) _estadioEditando = null;
+        try
+        {
+            await EstadioRepo.DeleteEstadioAsync(idEstadio);
+            await CargarDatosAsync();
+            _successMessage = "Estadio eliminado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al eliminar: {ex.Message}";
+        }
+    }
+
+    private class NuevoPaisModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre del país es obligatorio.")]
+        [System.ComponentModel.DataAnnotations.StringLength(64, ErrorMessage = "Máximo 64 caracteres.")]
+        public string Nombre { get; set; } = string.Empty;
+    }
+
+    private class NuevoEstadioModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre del estadio es obligatorio.")]
+        [System.ComponentModel.DataAnnotations.StringLength(128, ErrorMessage = "Máximo 128 caracteres.")]
+        public string Nombre { get; set; } = string.Empty;
+
+        public string NombrePaisSede { get; set; } = string.Empty;
+    }
+
+    private class EditFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre del estadio es obligatorio.")]
+        [System.ComponentModel.DataAnnotations.StringLength(128, ErrorMessage = "Máximo 128 caracteres.")]
+        public string Nombre { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El país sede es obligatorio.")]
+        public string NombrePaisSede { get; set; } = string.Empty;
+    }
+}
