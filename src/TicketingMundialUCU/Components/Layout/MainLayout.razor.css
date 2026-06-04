@@ -4,7 +4,7 @@
     flex-direction: column;
 }
 
-main { flex: 1; }
+main { flex: 1; min-width: 0; }
 
 .sidebar {
     background: #0f172a;
@@ -14,17 +14,21 @@ main { flex: 1; }
     .page { flex-direction: row; }
 
     .sidebar {
-        width: 240px;
+        width: var(--sidebar-w, 260px);
         height: 100vh;
         position: sticky;
         top: 0;
-        border-right: 1px solid rgba(255,255,255,.06);
+        border-right: 1px solid rgba(255,255,255,.05);
         flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+        padding-left: 2.25rem !important;
+        padding-right: 2.25rem !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2.5rem !important;
     }
 }
 

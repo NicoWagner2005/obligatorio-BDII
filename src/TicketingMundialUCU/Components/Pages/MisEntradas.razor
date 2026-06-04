@@ -1,0 +1,155 @@
+@page "/mis-entradas"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
+@using System.Security.Claims
+@attribute [Authorize(Roles = "general")]
+@inject VentaService VentaService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Mis Entradas</PageTitle>
+
+<div class="page-header">
+    <h1>Mis Entradas</h1>
+    <p class="page-subtitle">Historial de entradas compradas</p>
+</div>
+
+@if (_cargando)
+{
+    <div class="text-center text-muted py-5">
+        <p class="mb-0">Cargando entradas…</p>
+    </div>
+}
+else if (!_entradas.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.4">🎫</div>
+            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">Todavía no compraste entradas</h5>
+            <p class="text-muted small mb-3">Encontrá los mejores eventos y conseguí tus entradas.</p>
+            <a href="/comprar" class="btn btn-primary">Comprar entradas</a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">🎫</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_entradas.Count</div>
+                    <div class="stat-label">Entradas totales</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-purple">🛒</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_entradasPorVenta.Count</div>
+                    <div class="stat-label">Compras realizadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-amber">💵</div>
+                <div class="stat-body">
+                    <div class="stat-value">$@_entradas.Sum(e => e.PrecioUnitario).ToString("N0")</div>
+                    <div class="stat-label">Gastado en entradas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">✅</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_entradas.Count(e => e.EstadoVenta == "paga")</div>
+                    <div class="stat-label">Entradas pagas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entradas agrupadas por venta como tickets -->
+    @foreach (var grupo in _entradasPorVenta)
+    {
+        var ventaId = grupo.Key;
+        var items = grupo.Value;
+        var primerItem = items[0];
+        var estadoPill = primerItem.EstadoVenta switch {
+            "paga"       => "sp-paid",
+            "confirmada" => "sp-confirmed",
+            _            => "sp-pending",
+        };
+        var ticketClass = primerItem.EstadoVenta switch {
+            "paga"       => "ticket-paid",
+            "confirmada" => "ticket-confirmed",
+            _            => "ticket-pending",
+        };
+
+        <div class="mb-3">
+            <!-- Compra header -->
+            <div class="d-flex align-items-center gap-2 mb-2 px-1">
+                <span class="fw-semibold" style="font-size:.875rem">Compra #@ventaId</span>
+                <span class="status-pill @estadoPill">@primerItem.EstadoVenta</span>
+                <span class="text-muted small ms-auto">@items.Count entrada@(items.Count != 1 ? "s" : "")</span>
+            </div>
+
+            <!-- Individual tickets -->
+            @foreach (var entrada in items)
+            {
+                <div class="ticket-card @ticketClass mb-2">
+                    <div class="ticket-header">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <div>
+                                <div class="match-display mb-1">
+                                    <span class="match-team">@(entrada.EquipoLocal ?? "—")</span>
+                                    <span class="match-separator">VS</span>
+                                    <span class="match-team">@(entrada.EquipoVisitante ?? "—")</span>
+                                </div>
+                                <div style="font-size:.775rem;color:var(--text-3)">
+                                    @entrada.FechaHoraEvento.ToString("dd MMM yyyy") · @entrada.FechaHoraEvento.ToString("HH:mm") hs
+                                    · @entrada.NombreEstadio
+                                </div>
+                            </div>
+                            <span class="sector-badge sector-@entrada.IdSector flex-shrink-0">@entrada.IdSector</span>
+                        </div>
+                    </div>
+                    <div class="ticket-body d-flex align-items-center justify-content-between gap-3">
+                        <div style="font-size:.8rem;color:var(--text-2)">
+                            Sector <strong>@entrada.IdSector</strong>
+                        </div>
+                        <div class="fw-semibold" style="font-size:.9rem">
+                            $@entrada.PrecioUnitario.ToString("N0")
+                        </div>
+                        <code class="ticket-code">@entrada.CodigoEntrada.ToString().ToUpper()</code>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<EntradaDetalle> _entradas = [];
+    private Dictionary<int, List<EntradaDetalle>> _entradasPorVenta = [];
+    private bool _cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is not null)
+        {
+            _entradas = (await VentaService.GetEntradasByUsuarioAsync(userId)).ToList();
+            _entradasPorVenta = _entradas
+                .GroupBy(e => e.IdVenta)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+        _cargando = false;
+    }
+}

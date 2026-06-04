@@ -1,0 +1,323 @@
+@page "/comprar"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
+@using System.Security.Claims
+@attribute [Authorize(Roles = "general")]
+@inject EventoService EventoService
+@inject VentaService VentaService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Comprar Entradas</PageTitle>
+
+<div class="page-header">
+    <h1>Comprar Entradas</h1>
+    <p class="page-subtitle">Seleccioná el evento y los sectores de tu preferencia</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@if (_ventaConfirmada.HasValue)
+{
+    <div class="confirm-success mb-4">
+        <div class="confirm-icon">✓</div>
+        <h3 class="confirm-title">¡Compra realizada!</h3>
+        <p class="confirm-sub">Venta #@_ventaConfirmada.Value · @_entradasConfirmadas.Count entrada@(_entradasConfirmadas.Count != 1 ? "s" : "") generada@(_entradasConfirmadas.Count != 1 ? "s" : "")</p>
+        <div class="d-flex justify-content-center gap-2">
+            <a href="/mis-entradas" class="btn btn-primary">Ver mis entradas</a>
+            <button class="btn btn-outline-secondary" @onclick="NuevaCompra">Comprar más</button>
+        </div>
+    </div>
+}
+else if (_paso == 1)
+{
+    <!-- Paso 1: selección de evento -->
+    @if (!_eventos.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.4">📅</div>
+                <h5 class="fw-semibold mb-1" style="color:var(--text-2)">Sin eventos disponibles</h5>
+                <p class="text-muted small mb-0">No hay eventos próximos en este momento.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var ev in _eventos)
+            {
+                var sectores = _sectoresPorEvento.GetValueOrDefault(ev.IdEvento, []);
+                <div class="col-md-6 col-lg-4">
+                    <div class="event-card" @onclick="() => SeleccionarEventoAsync(ev)">
+                        <div class="match-display mb-2">
+                            <span class="match-team">@(ev.EquipoLocal ?? "—")</span>
+                            <span class="match-separator">VS</span>
+                            <span class="match-team">@(ev.EquipoVisitante ?? "—")</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mb-2" style="font-size:.8rem;color:var(--text-2)">
+                            <span>📅 @ev.FechaHora.ToString("dd MMM yyyy")</span>
+                            <span>·</span>
+                            <span>@ev.FechaHora.ToString("HH:mm") hs</span>
+                        </div>
+                        <div style="font-size:.775rem;color:var(--text-3);margin-bottom:.75rem">
+                            🏟 @ev.NombreEstadio
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex gap-1 flex-wrap">
+                                @foreach (var s in sectores)
+                                {
+                                    <span class="sector-badge sector-@s.IdSector" title="$@s.Precio.ToString("N0")">@s.IdSector</span>
+                                }
+                            </div>
+                            <span class="badge bg-light text-dark border" style="font-size:.72rem">Seleccionar →</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+else if (_paso == 2 && _eventoSeleccionado is not null)
+{
+    <!-- Paso 2: selección de sectores y cantidad -->
+    var sectores = _sectoresPorEvento.GetValueOrDefault(_eventoSeleccionado.IdEvento, []);
+
+    <div class="row g-4">
+        <!-- Panel izquierdo: resumen y acción -->
+        <div class="col-md-4">
+            <div class="card" style="position:sticky;top:1.5rem">
+                <div class="card-header">
+                    <h6 class="mb-0">Resumen de compra</h6>
+                </div>
+                <div class="card-body">
+                    <div class="match-display mb-2">
+                        <span class="match-team">@(_eventoSeleccionado.EquipoLocal ?? "—")</span>
+                        <span class="match-separator">VS</span>
+                        <span class="match-team">@(_eventoSeleccionado.EquipoVisitante ?? "—")</span>
+                    </div>
+                    <div style="font-size:.775rem;color:var(--text-3)" class="mb-1">
+                        @_eventoSeleccionado.FechaHora.ToString("dd MMM yyyy") · @_eventoSeleccionado.FechaHora.ToString("HH:mm") hs
+                    </div>
+                    <div style="font-size:.775rem;color:var(--text-3)" class="mb-3">
+                        @_eventoSeleccionado.NombreEstadio
+                    </div>
+
+                    <div class="border-top pt-3">
+                        @{
+                            var totalItems = _carrito.Values.Sum();
+                            var subtotal = _carrito.Sum(kv =>
+                                kv.Value * (sectores.FirstOrDefault(s => s.IdSector == kv.Key)?.Precio ?? 0));
+                            var comision = subtotal * _tasa!.Tasa;
+                            var total = subtotal + comision;
+                        }
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Entradas seleccionadas</span>
+                            <span class="fw-semibold">@totalItems / 5</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Subtotal</span>
+                            <span>$@subtotal.ToString("N0")</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-2">
+                            <span class="text-muted">Comisión (@((_tasa!.Tasa * 100).ToString("0.##"))%)</span>
+                            <span>$@comision.ToString("N0")</span>
+                        </div>
+                        <div class="d-flex justify-content-between fw-bold border-top pt-2">
+                            <span>Total</span>
+                            <span style="color:var(--brand)">$@total.ToString("N0")</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-grid gap-2">
+                        <button class="btn btn-primary" disabled="@(_comprando || totalItems == 0)"
+                                @onclick="ConfirmarCompraAsync">
+                            @(_comprando ? "Procesando…" : "Confirmar compra")
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm"
+                                @onclick="() => { _paso = 1; _carrito.Clear(); }">
+                            ← Volver a eventos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho: sectores -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Elegí tus sectores</h6>
+                    <span class="text-muted small">Máximo 5 entradas por compra</span>
+                </div>
+                <div class="card-body">
+                    @if (!sectores.Any())
+                    {
+                        <p class="text-muted small">Este evento no tiene sectores habilitados.</p>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            @foreach (var s in sectores)
+                            {
+                                var sid = s.IdSector;
+                                var cantidad = _carrito.GetValueOrDefault(sid, 0);
+                                var totalActual = _carrito.Values.Sum();
+                                var disponibles = _disponibilidad.GetValueOrDefault(sid, 0);
+                                var sinLugar = disponibles <= 0;
+                                <div class="col-md-6">
+                                    <div class="border rounded-3 p-3 h-100"
+                                         style="opacity:@(sinLugar ? ".55" : "1");transition:opacity .15s;background:@(cantidad > 0 ? "var(--brand-bg)" : "var(--surface)");border-color:@(cantidad > 0 ? "var(--brand)" : "var(--border)") !important">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="sector-badge sector-@sid">@sid</span>
+                                                <span class="fw-semibold" style="font-size:.9rem">Sector @sid</span>
+                                            </div>
+                                            <span class="fw-bold" style="font-size:1rem;color:var(--brand)">$@s.Precio.ToString("N0")</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    style="width:32px;height:32px;padding:0"
+                                                    disabled="@(cantidad == 0)"
+                                                    @onclick="() => Decrementar(sid)">−</button>
+                                            <span class="fw-bold" style="font-size:1.1rem;min-width:1.75rem;text-align:center">@cantidad</span>
+                                            <button class="btn btn-outline-primary btn-sm"
+                                                    style="width:32px;height:32px;padding:0"
+                                                    disabled="@(totalActual >= 5 || cantidad >= disponibles || sinLugar)"
+                                                    @onclick="() => Incrementar(sid)">+</button>
+                                            @if (cantidad > 0)
+                                            {
+                                                <span class="text-muted small ms-1">= $@((cantidad * s.Precio).ToString("N0"))</span>
+                                            }
+                                        </div>
+                                        <div class="mt-2" style="font-size:.72rem">
+                                            @if (sinLugar)
+                                            {
+                                                <span style="color:#ef4444;font-weight:600">Sin disponibilidad</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color:var(--text-3)">@disponibles lugar@(disponibles != 1 ? "es" : "") disponible@(disponibles != 1 ? "s" : "")</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        @if (_carrito.Values.Sum() >= 5)
+                        {
+                            <div class="alert alert-warning mt-3 mb-0 py-2 small">
+                                Límite de 5 entradas por transacción alcanzado.
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<EventoDetalle> _eventos = [];
+    private Dictionary<int, List<SectorHabilitado>> _sectoresPorEvento = [];
+    private TasaComision? _tasa;
+    private string? _userId;
+    private Dictionary<string, int> _disponibilidad = [];
+
+    private int _paso = 1;
+    private EventoDetalle? _eventoSeleccionado;
+    private Dictionary<string, int> _carrito = new();
+
+    private bool _comprando;
+    private string? _errorMessage;
+    private int? _ventaConfirmada;
+    private List<Guid> _entradasConfirmadas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        _userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await CargarDatosAsync();
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        var ahora = DateTime.Now;
+        var todos = (await EventoService.GetAllEventosDetalladosAsync()).ToList();
+        _eventos = todos.Where(e => e.FechaHora > ahora).OrderBy(e => e.FechaHora).ToList();
+        _sectoresPorEvento = await EventoService.GetAllSectoresHabilitadosAsync();
+        _tasa = await VentaService.GetTasaVigenteAsync();
+    }
+
+    private async Task SeleccionarEventoAsync(EventoDetalle ev)
+    {
+        _eventoSeleccionado = ev;
+        _carrito.Clear();
+        _disponibilidad = await VentaService.GetDisponibilidadAsync(ev.IdEvento, ev.IdEstadio);
+        _paso = 2;
+        _errorMessage = null;
+    }
+
+    private void Incrementar(string sector)
+    {
+        if (_carrito.Values.Sum() >= 5) return;
+        var actual = _carrito.GetValueOrDefault(sector, 0);
+        var disponibles = _disponibilidad.GetValueOrDefault(sector, 0);
+        if (actual >= disponibles) return;
+        _carrito[sector] = actual + 1;
+    }
+
+    private void Decrementar(string sector)
+    {
+        if (!_carrito.TryGetValue(sector, out var actual) || actual == 0) return;
+        if (actual == 1) _carrito.Remove(sector);
+        else _carrito[sector] = actual - 1;
+    }
+
+    private async Task ConfirmarCompraAsync()
+    {
+        if (_eventoSeleccionado is null || _userId is null) return;
+        _errorMessage = null;
+        _comprando = true;
+
+        try
+        {
+            var items = _carrito
+                .Where(kv => kv.Value > 0)
+                .Select(kv => new ItemCarrito(
+                    _eventoSeleccionado.IdEvento,
+                    _eventoSeleccionado.IdEstadio,
+                    kv.Key,
+                    kv.Value))
+                .ToList();
+
+            var idVenta = await VentaService.ComprarEntradasAsync(_userId, items);
+            var entradas = (await VentaService.GetDetallesByVentaAsync(idVenta)).ToList();
+            _entradasConfirmadas = entradas.Select(e => e.CodigoEntrada).ToList();
+            _ventaConfirmada = idVenta;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _comprando = false; }
+    }
+
+    private void NuevaCompra()
+    {
+        _ventaConfirmada = null;
+        _entradasConfirmadas = [];
+        _paso = 1;
+        _carrito.Clear();
+        _eventoSeleccionado = null;
+        _errorMessage = null;
+    }
+}

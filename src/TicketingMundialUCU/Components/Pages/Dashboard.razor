@@ -1,8 +1,276 @@
 @page "/dashboard"
 @using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
 @attribute [Authorize]
+@inject EventoService EventoService
+@inject EstadioService EstadioService
+@inject VentaService VentaService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Inicio · Ticketing Mundial</PageTitle>
 
-<h1>Dashboard</h1>
-<p>Put your upcoming events, notifications, and requests here.</p>
+@if (_cargando)
+{
+    <div class="text-center text-muted py-5">
+        <p class="mb-0">Cargando…</p>
+    </div>
+}
+else
+{
+    <!-- Welcome card -->
+    <div class="welcome-card mb-4">
+        <h2>¡Bienvenido, @_nombre! 👋</h2>
+        <p>
+            @if (_esAdmin)
+            {
+                <span>Panel de administración · Mundial UCU 2026</span>
+            }
+            else
+            {
+                <span>Tu portal de entradas para el Mundial UCU 2026</span>
+            }
+        </p>
+    </div>
+
+    @if (_esAdmin)
+    {
+        <!-- Admin stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue">🏟</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_totalEstadios</div>
+                        <div class="stat-label">Estadios</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple">📅</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_totalEventos</div>
+                        <div class="stat-label">Eventos programados</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green">💰</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_totalVentas</div>
+                        <div class="stat-label">Ventas totales</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-amber">⏳</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_ventasPendientes</div>
+                        <div class="stat-label">Ventas pendientes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick links admin -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <a href="/admin/estadios" class="quick-card">
+                    <div class="quick-card-icon">🏟</div>
+                    <div>
+                        <div class="quick-card-label">Gestionar estadios</div>
+                        <div class="quick-card-sub">@_totalEstadios estadio@(_totalEstadios != 1 ? "s" : "") registrado@(_totalEstadios != 1 ? "s" : "")</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="/admin/eventos" class="quick-card">
+                    <div class="quick-card-icon">📅</div>
+                    <div>
+                        <div class="quick-card-label">Gestionar eventos</div>
+                        <div class="quick-card-sub">@_proximosEventos.Count próximo@(_proximosEventos.Count != 1 ? "s" : "") evento@(_proximosEventos.Count != 1 ? "s" : "")</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="/admin/ventas" class="quick-card">
+                    <div class="quick-card-icon">🎫</div>
+                    <div>
+                        <div class="quick-card-label">Gestionar ventas</div>
+                        <div class="quick-card-sub">@_ventasPendientes pendiente@(_ventasPendientes != 1 ? "s" : "") de confirmación</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- General user stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue">🎫</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_totalMisEntradas</div>
+                        <div class="stat-label">Mis entradas</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green">✅</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_entradasPagas</div>
+                        <div class="stat-label">Entradas pagas</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple">📅</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_proximosEventos.Count</div>
+                        <div class="stat-label">Eventos disponibles</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-amber">💵</div>
+                    <div class="stat-body">
+                        <div class="stat-value">$@_gastoTotal.ToString("N0")</div>
+                        <div class="stat-label">Total gastado</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick links user -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <a href="/comprar" class="quick-card">
+                    <div class="quick-card-icon">🛒</div>
+                    <div>
+                        <div class="quick-card-label">Comprar entradas</div>
+                        <div class="quick-card-sub">@_proximosEventos.Count evento@(_proximosEventos.Count != 1 ? "s" : "") disponible@(_proximosEventos.Count != 1 ? "s" : "")</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="/mis-entradas" class="quick-card">
+                    <div class="quick-card-icon">🎟</div>
+                    <div>
+                        <div class="quick-card-label">Mis entradas</div>
+                        <div class="quick-card-sub">@_totalMisEntradas entrada@(_totalMisEntradas != 1 ? "s" : "") comprada@(_totalMisEntradas != 1 ? "s" : "")</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    }
+
+    <!-- Próximos eventos (todos los roles) -->
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Próximos eventos</h6>
+            <span class="badge bg-secondary">@_proximosEventos.Count</span>
+        </div>
+        <div class="card-body p-0">
+            @if (!_proximosEventos.Any())
+            {
+                <div class="text-center text-muted py-5">
+                    <p class="mb-0">No hay eventos próximos programados.</p>
+                </div>
+            }
+            else
+            {
+                <div class="px-4 py-2">
+                    @foreach (var ev in _proximosEventos)
+                    {
+                        <div class="upcoming-event">
+                            <div class="upcoming-date">
+                                <div class="upcoming-date-day">@ev.FechaHora.ToString("dd")</div>
+                                <div class="upcoming-date-month">@ev.FechaHora.ToString("MMM")</div>
+                            </div>
+                            <div class="upcoming-divider"></div>
+                            <div class="flex-grow-1 min-width-0">
+                                <div class="match-display mb-1">
+                                    <span class="match-team">@(ev.EquipoLocal ?? "—")</span>
+                                    <span class="match-separator">VS</span>
+                                    <span class="match-team">@(ev.EquipoVisitante ?? "—")</span>
+                                </div>
+                                <div style="font-size:.775rem;color:var(--text-3)">
+                                    @ev.NombreEstadio · @ev.FechaHora.ToString("HH:mm") hs
+                                </div>
+                            </div>
+                            @if (!_esAdmin)
+                            {
+                                <a href="/comprar" class="btn btn-sm btn-outline-primary flex-shrink-0">
+                                    Ver
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _cargando = true;
+    private bool _esAdmin;
+    private string _nombre = "";
+
+    private List<EventoDetalle> _proximosEventos = [];
+    private int _totalEstadios;
+    private int _totalEventos;
+    private int _totalVentas;
+    private int _ventasPendientes;
+
+    private int _totalMisEntradas;
+    private int _entradasPagas;
+    private decimal _gastoTotal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+        _nombre = user.Identity?.Name?.Split('@')[0] ?? "Usuario";
+        _esAdmin = user.IsInRole("administrador");
+
+        var ahora = DateTime.Now;
+        var todosEventos = (await EventoService.GetAllEventosDetalladosAsync()).ToList();
+        _proximosEventos = todosEventos
+            .Where(e => e.FechaHora > ahora)
+            .OrderBy(e => e.FechaHora)
+            .Take(5)
+            .ToList();
+
+        if (_esAdmin)
+        {
+            _totalEstadios = (await EstadioService.GetAllEstadiosAsync()).Count();
+            _totalEventos = todosEventos.Count;
+            var ventas = (await VentaService.GetAllVentasAsync()).ToList();
+            _totalVentas = ventas.Count;
+            _ventasPendientes = ventas.Count(v => v.Estado == "pendiente");
+        }
+        else
+        {
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId is not null)
+            {
+                var entradas = (await VentaService.GetEntradasByUsuarioAsync(userId)).ToList();
+                _totalMisEntradas = entradas.Count;
+                _entradasPagas = entradas.Count(e => e.EstadoVenta == "paga");
+                _gastoTotal = entradas.Sum(e => e.PrecioUnitario);
+            }
+        }
+
+        _cargando = false;
+    }
+}

@@ -41,6 +41,10 @@ builder.Services.AddScoped<UserPhoneRepository>();
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<EstadioRepository>();
 builder.Services.AddScoped<EventoRepository>();
+builder.Services.AddScoped<VentaRepository>();
+builder.Services.AddScoped<EstadioService>();
+builder.Services.AddScoped<EventoService>();
+builder.Services.AddScoped<VentaService>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();

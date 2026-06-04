@@ -5,6 +5,8 @@ namespace TicketingMundialUCU.Data.Repositories;
 
 public record Equipo(int IdEquipo, string Nombre);
 
+public record SectorHabilitado(string IdSector, decimal Precio);
+
 public record EventoDetalle(
     int IdEvento,
     DateTime FechaHora,
@@ -57,18 +59,18 @@ public class EventoRepository(IConfiguration configuration)
             """);
     }
 
-    public async Task<Dictionary<int, List<string>>> GetAllSectoresHabilitadosAsync()
+    public async Task<Dictionary<int, List<SectorHabilitado>>> GetAllSectoresHabilitadosAsync()
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        var rows = await connection.QueryAsync<(int IdEvento, string IdSector)>(
+        var rows = await connection.QueryAsync<(int IdEvento, string IdSector, decimal Precio)>(
             """
-            SELECT id_evento AS "IdEvento", id_sector AS "IdSector"
+            SELECT id_evento AS "IdEvento", id_sector AS "IdSector", precio AS "Precio"
             FROM evento_habilita_sector
             ORDER BY id_evento, id_sector
             """);
         return rows
             .GroupBy(r => r.IdEvento)
-            .ToDictionary(g => g.Key, g => g.Select(r => r.IdSector).ToList());
+            .ToDictionary(g => g.Key, g => g.Select(r => new SectorHabilitado(r.IdSector, r.Precio)).ToList());
     }
 
     // RF-31: verifica que no haya otro evento en el mismo estadio dentro de una
@@ -103,7 +105,7 @@ public class EventoRepository(IConfiguration configuration)
         int idEstadio,
         int idEquipoLocal,
         int idEquipoVisitante,
-        IEnumerable<string> sectoresHabilitados)
+        IEnumerable<(string Sector, decimal Precio)> sectoresConPrecio)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -135,14 +137,14 @@ public class EventoRepository(IConfiguration configuration)
             },
             transaction);
 
-        foreach (var sector in sectoresHabilitados)
+        foreach (var (sector, precio) in sectoresConPrecio)
         {
             await connection.ExecuteAsync(
                 """
-                INSERT INTO evento_habilita_sector (id_evento, id_estadio, id_sector)
-                VALUES (@IdEvento, @IdEstadio, @IdSector)
+                INSERT INTO evento_habilita_sector (id_evento, id_estadio, id_sector, precio)
+                VALUES (@IdEvento, @IdEstadio, @IdSector, @Precio)
                 """,
-                new { IdEvento = idEvento, IdEstadio = idEstadio, IdSector = sector },
+                new { IdEvento = idEvento, IdEstadio = idEstadio, IdSector = sector, Precio = precio },
                 transaction);
         }
 
@@ -156,7 +158,7 @@ public class EventoRepository(IConfiguration configuration)
         int idEstadio,
         int idEquipoLocal,
         int idEquipoVisitante,
-        IEnumerable<string> sectoresHabilitados)
+        IEnumerable<(string Sector, decimal Precio)> sectoresConPrecio)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -196,14 +198,14 @@ public class EventoRepository(IConfiguration configuration)
             """DELETE FROM evento_habilita_sector WHERE id_evento = @IdEvento""",
             new { IdEvento = idEvento }, transaction);
 
-        foreach (var sector in sectoresHabilitados)
+        foreach (var (sector, precio) in sectoresConPrecio)
         {
             await connection.ExecuteAsync(
                 """
-                INSERT INTO evento_habilita_sector (id_evento, id_estadio, id_sector)
-                VALUES (@IdEvento, @IdEstadio, @IdSector)
+                INSERT INTO evento_habilita_sector (id_evento, id_estadio, id_sector, precio)
+                VALUES (@IdEvento, @IdEstadio, @IdSector, @Precio)
                 """,
-                new { IdEvento = idEvento, IdEstadio = idEstadio, IdSector = sector },
+                new { IdEvento = idEvento, IdEstadio = idEstadio, IdSector = sector, Precio = precio },
                 transaction);
         }
 

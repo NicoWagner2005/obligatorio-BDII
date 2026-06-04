@@ -1,8 +1,9 @@
 @page "/admin/estadios"
 @using Microsoft.AspNetCore.Authorization
 @using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
 @attribute [Authorize(Roles = "administrador")]
-@inject EstadioRepository EstadioRepo
+@inject EstadioService EstadioService
 @rendermode InteractiveServer
 
 <PageTitle>Estadios · Admin</PageTitle>
@@ -269,12 +270,12 @@
 
     private async Task CargarDatosAsync()
     {
-        _paises = (await EstadioRepo.GetAllPaisesSedeAsync()).ToList();
-        _estadios = (await EstadioRepo.GetAllEstadiosAsync()).ToList();
+        _paises = (await EstadioService.GetAllPaisesSedeAsync()).ToList();
+        _estadios = (await EstadioService.GetAllEstadiosAsync()).ToList();
         _sectoresPorEstadio = [];
         foreach (var estadio in _estadios)
         {
-            var sectores = await EstadioRepo.GetSectoresByEstadioAsync(estadio.IdEstadio);
+            var sectores = await EstadioService.GetSectoresByEstadioAsync(estadio.IdEstadio);
             _sectoresPorEstadio[estadio.IdEstadio] = sectores.ToList();
         }
     }
@@ -299,15 +300,10 @@
     private async Task GuardarEdicionAsync()
     {
         if (_estadioEditando is null) return;
-        if (_capacidadesEdit.Values.Any(c => c <= 0))
-        {
-            _errorMessage = "La capacidad de cada sector debe ser mayor a 0.";
-            return;
-        }
         _guardando = true;
         try
         {
-            await EstadioRepo.UpdateEstadioAsync(
+            await EstadioService.ActualizarEstadioAsync(
                 _estadioEditando.IdEstadio,
                 _editForm.Nombre.Trim(),
                 _editForm.NombrePaisSede,
@@ -318,7 +314,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Error al actualizar: {ex.Message}";
+            _errorMessage = ex.Message;
         }
         finally { _guardando = false; }
     }
@@ -329,16 +325,14 @@
         _successMessage = null;
         try
         {
-            await EstadioRepo.CreatePaisSedeAsync(_nuevoPais.Nombre.Trim());
+            await EstadioService.AgregarPaisSedeAsync(_nuevoPais.Nombre.Trim());
             _nuevoPais = new();
             await CargarDatosAsync();
             _successMessage = "País sede agregado correctamente.";
         }
         catch (Exception ex)
         {
-            _errorMessage = ex.Message.Contains("duplicate") || ex.Message.Contains("unique")
-                ? "Ya existe un país sede con ese nombre."
-                : $"Error al agregar país: {ex.Message}";
+            _errorMessage = ex.Message;
         }
     }
 
@@ -346,20 +340,10 @@
     {
         _errorMessage = null;
         _successMessage = null;
-        if (string.IsNullOrWhiteSpace(_nuevoEstadio.NombrePaisSede))
-        {
-            _errorMessage = "Debe seleccionar un país sede.";
-            return;
-        }
-        if (_capacidadesNuevo.Values.Any(c => c <= 0))
-        {
-            _errorMessage = "La capacidad de cada sector debe ser mayor a 0.";
-            return;
-        }
         _guardando = true;
         try
         {
-            await EstadioRepo.CreateEstadioAsync(
+            await EstadioService.RegistrarEstadioAsync(
                 _nuevoEstadio.Nombre.Trim(),
                 _nuevoEstadio.NombrePaisSede,
                 new Dictionary<string, int>(_capacidadesNuevo));
@@ -371,7 +355,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Error al registrar estadio: {ex.Message}";
+            _errorMessage = ex.Message;
         }
         finally { _guardando = false; }
     }
@@ -383,13 +367,13 @@
         if (_estadioEditando?.IdEstadio == idEstadio) _estadioEditando = null;
         try
         {
-            await EstadioRepo.DeleteEstadioAsync(idEstadio);
+            await EstadioService.EliminarEstadioAsync(idEstadio);
             await CargarDatosAsync();
             _successMessage = "Estadio eliminado correctamente.";
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Error al eliminar: {ex.Message}";
+            _errorMessage = ex.Message;
         }
     }
 
