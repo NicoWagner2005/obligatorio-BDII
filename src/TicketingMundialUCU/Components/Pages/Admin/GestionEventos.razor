@@ -1,0 +1,519 @@
+@page "/admin/eventos"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
+@using System.Security.Claims
+@attribute [Authorize(Roles = "administrador")]
+@inject EventoService EventoService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Eventos · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Eventos Deportivos</h1>
+    <p class="page-subtitle">Programación y gestión de partidos</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+<div class="row g-4 mb-4">
+    <!-- Equipos -->
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Equipos</h6>
+                <span class="badge bg-secondary">@_equipos.Count</span>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <ul class="list-group list-group-flush flex-grow-1 mb-3"
+                    style="max-height:220px;overflow-y:auto">
+                    @if (!_equipos.Any())
+                    {
+                        <li class="list-group-item text-muted small">Sin equipos registrados</li>
+                    }
+                    @foreach (var eq in _equipos)
+                    {
+                        <li class="list-group-item py-2 small">@eq.Nombre</li>
+                    }
+                </ul>
+                <EditForm Model="_nuevoEquipo" OnValidSubmit="AgregarEquipoAsync">
+                    <DataAnnotationsValidator />
+                    <div class="input-group input-group-sm">
+                        <InputText class="form-control" @bind-Value="_nuevoEquipo.Nombre"
+                                   placeholder="Nombre del equipo" />
+                        <button class="btn btn-primary" type="submit">+</button>
+                    </div>
+                    <ValidationSummary class="text-danger mt-1 small" />
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crear evento -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Programar nuevo evento</h6>
+            </div>
+            <div class="card-body">
+                <EditForm Model="_nuevoEvento" OnValidSubmit="CrearEventoAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3 small" />
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Estadio</label>
+                            <select class="form-select" @bind="_nuevoEvento.IdEstadio"
+                                    @bind:after="CargarSectoresNuevoAsync">
+                                <option value="0">— Seleccionar estadio —</option>
+                                @foreach (var e in _estadios)
+                                {
+                                    <option value="@e.IdEstadio">@e.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha y hora</label>
+                            <input type="datetime-local" class="form-control"
+                                   value="@_nuevoEvento.FechaHora.ToString("yyyy-MM-ddTHH:mm")"
+                                   @onchange="e => { if (DateTime.TryParse(e.Value?.ToString(), out var dt)) _nuevoEvento.FechaHora = dt; }" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Sectores habilitados y precios</label>
+                            @if (_sectoresNuevo.Any())
+                            {
+                                <div class="row g-2">
+                                    @foreach (var s in _sectoresNuevo)
+                                    {
+                                        var sid = s.IdSector;
+                                        var activo = _sectoresHabNuevo.Contains(sid);
+                                        <div class="col-6 col-md-3">
+                                            <div class="border rounded p-2" style="opacity: @(activo ? "1" : ".55")">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="ns_@sid"
+                                                           checked="@activo"
+                                                           @onchange="e => ToggleSector(_sectoresHabNuevo, sid, (bool)e.Value!)" />
+                                                    <label class="form-check-label fw-semibold small" for="ns_@sid">
+                                                        <span class="sector-badge sector-@sid">@sid</span>
+                                                        Sector @sid
+                                                    </label>
+                                                </div>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="number" class="form-control" min="1" step="1"
+                                                           disabled="@(!activo)"
+                                                           value="@_preciosNuevo.GetValueOrDefault(sid, 50)"
+                                                           @onchange="@(e => { if (decimal.TryParse(e.Value?.ToString(), out var v)) _preciosNuevo[sid] = v; })" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0 pt-1">Seleccione un estadio primero</p>
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Equipo local</label>
+                            <select class="form-select" @bind="_nuevoEvento.IdEquipoLocal">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var eq in _equipos)
+                                {
+                                    <option value="@eq.IdEquipo">@eq.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Equipo visitante</label>
+                            <select class="form-select" @bind="_nuevoEvento.IdEquipoVisitante">
+                                <option value="0">— Seleccionar —</option>
+                                @foreach (var eq in _equipos)
+                                {
+                                    <option value="@eq.IdEquipo">@eq.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-primary" type="submit" disabled="@_guardando">
+                                @(_guardando ? "Guardando…" : "Programar evento")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de eventos -->
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Eventos programados</h6>
+        <span class="badge bg-secondary">@_eventos.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_eventos.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay eventos programados aún.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Estadio</th>
+                        <th>Partido</th>
+                        <th>Sectores</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ev in _eventos)
+                    {
+                        var sectoresHab = _sectoresPorEvento.GetValueOrDefault(ev.IdEvento, []);
+                        <tr>
+                            <td>
+                                <div class="date-cell">
+                                    <div class="date-main">@ev.FechaHora.ToString("dd MMM yyyy")</div>
+                                    <div class="date-time">@ev.FechaHora.ToString("HH:mm") hs</div>
+                                </div>
+                            </td>
+                            <td style="color:#475569;font-size:.875rem">@ev.NombreEstadio</td>
+                            <td>
+                                <div class="match-display">
+                                    <span class="match-team">@(ev.EquipoLocal ?? "—")</span>
+                                    <span class="match-separator">VS</span>
+                                    <span class="match-team">@(ev.EquipoVisitante ?? "—")</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    @foreach (var s in sectoresHab)
+                                    {
+                                        <span class="sector-badge sector-@s.IdSector"
+                                              title="$@s.Precio.ToString("N0")">@s.IdSector</span>
+                                    }
+                                    @if (!sectoresHab.Any())
+                                    {
+                                        <span style="color:#94a3b8">—</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        @onclick="() => IniciarEdicion(ev)">
+                                    Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => EliminarEventoAsync(ev.IdEvento)">
+                                    Eliminar
+                                </button>
+                            </td>
+                        </tr>
+
+                        @if (_eventoEditando?.IdEvento == ev.IdEvento)
+                        {
+                            <tr class="table-warning">
+                                <td colspan="5" class="py-3 px-4">
+                                    <EditForm Model="_editForm" OnValidSubmit="GuardarEdicionAsync">
+                                        <DataAnnotationsValidator />
+                                        <ValidationSummary class="text-danger mb-2 small" />
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-semibold">Estadio</label>
+                                                <select class="form-select form-select-sm"
+                                                        @bind="_editForm.IdEstadio"
+                                                        @bind:after="CargarSectoresEditAsync">
+                                                    @foreach (var e in _estadios)
+                                                    {
+                                                        <option value="@e.IdEstadio">@e.Nombre</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-semibold">Fecha y hora</label>
+                                                <input type="datetime-local" class="form-control form-control-sm"
+                                                       value="@_editForm.FechaHora.ToString("yyyy-MM-ddTHH:mm")"
+                                                       @onchange="e => { if (DateTime.TryParse(e.Value?.ToString(), out var dt)) _editForm.FechaHora = dt; }" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small fw-semibold">Local</label>
+                                                <select class="form-select form-select-sm"
+                                                        @bind="_editForm.IdEquipoLocal">
+                                                    @foreach (var eq in _equipos)
+                                                    {
+                                                        <option value="@eq.IdEquipo">@eq.Nombre</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small fw-semibold">Visitante</label>
+                                                <select class="form-select form-select-sm"
+                                                        @bind="_editForm.IdEquipoVisitante">
+                                                    @foreach (var eq in _equipos)
+                                                    {
+                                                        <option value="@eq.IdEquipo">@eq.Nombre</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-12 mt-2">
+                                                <label class="form-label small fw-semibold">Sectores habilitados y precios</label>
+                                                <div class="row g-2">
+                                                    @foreach (var s in _sectoresEdit)
+                                                    {
+                                                        var sid = s.IdSector;
+                                                        var activo = _sectoresHabEdit.Contains(sid);
+                                                        <div class="col-6 col-md-3">
+                                                            <div class="border rounded p-2" style="opacity: @(activo ? "1" : ".55")">
+                                                                <div class="form-check mb-1">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="es_@sid"
+                                                                           checked="@activo"
+                                                                           @onchange="e => ToggleSector(_sectoresHabEdit, sid, (bool)e.Value!)" />
+                                                                    <label class="form-check-label small fw-semibold" for="es_@sid">
+                                                                        <span class="sector-badge sector-@sid">@sid</span>
+                                                                        Sector @sid
+                                                                    </label>
+                                                                </div>
+                                                                <div class="input-group input-group-sm">
+                                                                    <span class="input-group-text">$</span>
+                                                                    <input type="number" class="form-control" min="1" step="1"
+                                                                           disabled="@(!activo)"
+                                                                           value="@_preciosEdit.GetValueOrDefault(sid, 0)"
+                                                                           @onchange="@(e => { if (decimal.TryParse(e.Value?.ToString(), out var v)) _preciosEdit[sid] = v; })" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2 d-flex gap-2 mt-2">
+                                                <button class="btn btn-sm btn-success" type="submit"
+                                                        disabled="@_guardando">
+                                                    Guardar
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" type="button"
+                                                        @onclick="CancelarEdicion">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </EditForm>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Equipo> _equipos = [];
+    private List<Estadio> _estadios = [];
+    private List<EventoDetalle> _eventos = [];
+    private Dictionary<int, List<SectorHabilitado>> _sectoresPorEvento = [];
+
+    private List<Sector> _sectoresNuevo = [];
+    private HashSet<string> _sectoresHabNuevo = [];
+    private Dictionary<string, decimal> _preciosNuevo = new() { ["A"] = 50, ["B"] = 50, ["C"] = 50, ["D"] = 50 };
+
+    private List<Sector> _sectoresEdit = [];
+    private HashSet<string> _sectoresHabEdit = [];
+    private Dictionary<string, decimal> _preciosEdit = new() { ["A"] = 0, ["B"] = 0, ["C"] = 0, ["D"] = 0 };
+
+    private EventoDetalle? _eventoEditando;
+    private EventoFormModel _editForm = new();
+    private EventoFormModel _nuevoEvento = new();
+    private NuevoEquipoModel _nuevoEquipo = new();
+
+    private bool _guardando;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private string? _adminId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        _adminId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await CargarDatosAsync();
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        _equipos = (await EventoService.GetAllEquiposAsync()).ToList();
+        _estadios = (await EventoService.GetAllEstadiosAsync()).ToList();
+        _eventos = (await EventoService.GetAllEventosDetalladosAsync()).ToList();
+        _sectoresPorEvento = await EventoService.GetAllSectoresHabilitadosAsync();
+    }
+
+    private async Task CargarSectoresNuevoAsync()
+    {
+        _sectoresHabNuevo.Clear();
+        _sectoresNuevo = _nuevoEvento.IdEstadio > 0
+            ? (await EventoService.GetSectoresByEstadioAsync(_nuevoEvento.IdEstadio)).ToList()
+            : [];
+        foreach (var s in _sectoresNuevo)
+            _preciosNuevo.TryAdd(s.IdSector, 50);
+    }
+
+    private async Task CargarSectoresEditAsync()
+    {
+        _sectoresHabEdit.Clear();
+        _sectoresEdit = _editForm.IdEstadio > 0
+            ? (await EventoService.GetSectoresByEstadioAsync(_editForm.IdEstadio)).ToList()
+            : [];
+        foreach (var s in _sectoresEdit)
+            _preciosEdit.TryAdd(s.IdSector, 0);
+    }
+
+    private static void ToggleSector(HashSet<string> set, string sector, bool add)
+    {
+        if (add) set.Add(sector);
+        else set.Remove(sector);
+    }
+
+    private async Task IniciarEdicion(EventoDetalle ev)
+    {
+        _eventoEditando = ev;
+        var local = _equipos.FirstOrDefault(e => e.Nombre == ev.EquipoLocal);
+        var visitante = _equipos.FirstOrDefault(e => e.Nombre == ev.EquipoVisitante);
+
+        _editForm = new EventoFormModel
+        {
+            IdEstadio = ev.IdEstadio,
+            FechaHora = ev.FechaHora,
+            IdEquipoLocal = local?.IdEquipo ?? 0,
+            IdEquipoVisitante = visitante?.IdEquipo ?? 0,
+        };
+
+        _sectoresEdit = (await EventoService.GetSectoresByEstadioAsync(ev.IdEstadio)).ToList();
+        var habilitados = _sectoresPorEvento.GetValueOrDefault(ev.IdEvento, []);
+        _sectoresHabEdit = [.. habilitados.Select(s => s.IdSector)];
+        foreach (var s in habilitados)
+            _preciosEdit[s.IdSector] = s.Precio;
+
+        _errorMessage = null;
+        _successMessage = null;
+    }
+
+    private void CancelarEdicion() => _eventoEditando = null;
+
+    private async Task CrearEventoAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _guardando = true;
+        try
+        {
+            await EventoService.ProgramarEventoAsync(
+                _nuevoEvento.FechaHora, _adminId!, _nuevoEvento.IdEstadio,
+                _nuevoEvento.IdEquipoLocal, _nuevoEvento.IdEquipoVisitante,
+                _sectoresHabNuevo.Select(s => (s, _preciosNuevo.GetValueOrDefault(s, 0m))));
+
+            _nuevoEvento = new();
+            _sectoresNuevo = [];
+            _sectoresHabNuevo = [];
+            foreach (var k in _preciosNuevo.Keys.ToList()) _preciosNuevo[k] = 50;
+            await CargarDatosAsync();
+            _successMessage = "Evento programado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task GuardarEdicionAsync()
+    {
+        if (_eventoEditando is null) return;
+        _errorMessage = null;
+        _successMessage = null;
+        _guardando = true;
+        try
+        {
+            await EventoService.ActualizarEventoAsync(
+                _eventoEditando.IdEvento, _editForm.FechaHora, _editForm.IdEstadio,
+                _editForm.IdEquipoLocal, _editForm.IdEquipoVisitante,
+                _sectoresHabEdit.Select(s => (s, _preciosEdit.GetValueOrDefault(s, 0m))));
+
+            _eventoEditando = null;
+            await CargarDatosAsync();
+            _successMessage = "Evento actualizado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task EliminarEventoAsync(int idEvento)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        if (_eventoEditando?.IdEvento == idEvento) _eventoEditando = null;
+        try
+        {
+            await EventoService.EliminarEventoAsync(idEvento);
+            await CargarDatosAsync();
+            _successMessage = "Evento eliminado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task AgregarEquipoAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await EventoService.AgregarEquipoAsync(_nuevoEquipo.Nombre.Trim());
+            _nuevoEquipo = new();
+            _equipos = (await EventoService.GetAllEquiposAsync()).ToList();
+            _successMessage = "Equipo agregado correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private class NuevoEquipoModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre es obligatorio.")]
+        [System.ComponentModel.DataAnnotations.StringLength(128, ErrorMessage = "Máximo 128 caracteres.")]
+        public string Nombre { get; set; } = string.Empty;
+    }
+
+    private class EventoFormModel
+    {
+        public int IdEstadio { get; set; }
+        public DateTime FechaHora { get; set; } = DateTime.Today.AddDays(7).AddHours(15);
+        public int IdEquipoLocal { get; set; }
+        public int IdEquipoVisitante { get; set; }
+    }
+}

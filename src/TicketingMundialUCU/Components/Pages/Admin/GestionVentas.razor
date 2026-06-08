@@ -1,0 +1,250 @@
+@page "/admin/ventas"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "administrador")]
+@inject VentaService VentaService
+@rendermode InteractiveServer
+
+<PageTitle>Ventas · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Ventas</h1>
+    <p class="page-subtitle">Administración de ventas y estados</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_ventas.Any())
+{
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">🧾</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Count</div>
+                    <div class="stat-label">Ventas totales</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-purple">🎫</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Sum(v => v.CantidadEntradas)</div>
+                    <div class="stat-label">Entradas vendidas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">💰</div>
+                <div class="stat-body">
+                    <div class="stat-value">$@_ventas.Sum(v => v.MontoTotal).ToString("N0")</div>
+                    <div class="stat-label">Recaudación total</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">✅</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Count(v => v.Estado == "paga")</div>
+                    <div class="stat-label">Ventas pagas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Listado de ventas</h6>
+        <span class="badge bg-secondary">@_ventas.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_ventas.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay ventas registradas aún.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Usuario</th>
+                        <th>Fecha</th>
+                        <th class="text-center">Entradas</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Comisión</th>
+                        <th class="text-center">Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var venta in _ventas)
+                    {
+                        var estadoPill = venta.Estado switch {
+                            "paga"       => "sp-paid",
+                            "confirmada" => "sp-confirmed",
+                            _            => "sp-pending",
+                        };
+                        <tr>
+                            <td class="text-muted small">@venta.IdVenta</td>
+                            <td class="small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                @venta.EmailUsuario
+                            </td>
+                            <td>
+                                <div class="date-cell">
+                                    <div class="date-main">@venta.FechaVenta.ToString("dd MMM yyyy")</div>
+                                    <div class="date-time">@venta.FechaVenta.ToString("HH:mm") hs</div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">@venta.CantidadEntradas</span>
+                            </td>
+                            <td class="text-end fw-semibold">$@venta.MontoTotal.ToString("N0")</td>
+                            <td class="text-center text-muted small">
+                                @((venta.TasaComisionAplicada * 100).ToString("0.##"))%
+                            </td>
+                            <td class="text-center">
+                                <span class="status-pill @estadoPill">@venta.Estado</span>
+                            </td>
+                            <td class="text-end">
+                                @if (venta.Estado == "pendiente")
+                                {
+                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                            @onclick='() => CambiarEstadoAsync(venta.IdVenta, "confirmada")'>
+                                        Confirmar
+                                    </button>
+                                }
+                                @if (venta.Estado == "confirmada")
+                                {
+                                    <button class="btn btn-sm btn-outline-success me-1"
+                                            @onclick='() => CambiarEstadoAsync(venta.IdVenta, "paga")'>
+                                        Marcar paga
+                                    </button>
+                                }
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => ToggleDetalle(venta.IdVenta)">
+                                    @(_detalleExpandido == venta.IdVenta ? "▲" : "▼")
+                                </button>
+                            </td>
+                        </tr>
+
+                        @if (_detalleExpandido == venta.IdVenta)
+                        {
+                            var detalles = _detalles.GetValueOrDefault(venta.IdVenta, []);
+                            <tr>
+                                <td colspan="8" class="p-0">
+                                    <div class="bg-light border-top border-bottom px-4 py-3">
+                                        @if (!detalles.Any())
+                                        {
+                                            <p class="text-muted small mb-0">Cargando detalles…</p>
+                                        }
+                                        else
+                                        {
+                                            <table class="table table-sm mb-0 bg-white">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Evento</th>
+                                                        <th class="text-center">Sector</th>
+                                                        <th class="text-end">Precio</th>
+                                                        <th>Código entrada</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var d in detalles)
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <div style="font-size:.85rem">
+                                                                    <span class="fw-semibold">@(d.EquipoLocal ?? "—") vs @(d.EquipoVisitante ?? "—")</span>
+                                                                    <span class="text-muted ms-2">@d.FechaHoraEvento.ToString("dd MMM yyyy · HH:mm")</span>
+                                                                </div>
+                                                                <div class="text-muted" style="font-size:.75rem">@d.NombreEstadio</div>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <span class="sector-badge sector-@d.IdSector">@d.IdSector</span>
+                                                            </td>
+                                                            <td class="text-end">$@d.PrecioUnitario.ToString("N0")</td>
+                                                            <td>
+                                                                <code class="ticket-code">@d.CodigoEntrada.ToString().ToUpper()</code>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<VentaResumen> _ventas = [];
+    private Dictionary<int, List<EntradaDetalle>> _detalles = [];
+    private int? _detalleExpandido;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync() => await CargarDatosAsync();
+
+    private async Task CargarDatosAsync()
+    {
+        _ventas = (await VentaService.GetAllVentasAsync()).ToList();
+    }
+
+    private async Task CambiarEstadoAsync(int idVenta, string nuevoEstado)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await VentaService.ActualizarEstadoVentaAsync(idVenta, nuevoEstado);
+            await CargarDatosAsync();
+            _successMessage = $"Estado de venta #{idVenta} actualizado a '{nuevoEstado}'.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ToggleDetalle(int idVenta)
+    {
+        if (_detalleExpandido == idVenta)
+        {
+            _detalleExpandido = null;
+            return;
+        }
+        _detalleExpandido = idVenta;
+        if (!_detalles.ContainsKey(idVenta))
+        {
+            var detalles = await VentaService.GetDetallesByVentaAsync(idVenta);
+            _detalles[idVenta] = detalles.ToList();
+        }
+    }
+}

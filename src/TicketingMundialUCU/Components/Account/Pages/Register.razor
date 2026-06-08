@@ -1,4 +1,4 @@
-﻿@page "/Account/Register"
+@page "/Account/Register"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using TicketingMundialUCU.Data
 @using TicketingMundialUCU.Services
+
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IEmailSender<ApplicationUser> EmailSender
@@ -15,96 +16,129 @@
 @inject IdentityRedirectManager RedirectManager
 @inject UserRegistrationService UserRegistrationService
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Crear cuenta</PageTitle>
 
-<h1>Registro</h1>
+<div class="auth-wrap">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-brand">Ticketing <em>Mundial</em> UCU</div>
 
-<div class="row">
-    <div class="col-lg-6">
+        <h1 class="auth-title">Crear cuenta</h1>
+        <p class="auth-subtitle">Completá los datos para registrarte en el sistema.</p>
+
         <StatusMessage Message="@Message" />
-        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+
+        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post"
+                  OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
-            <h2>Crear una nueva cuenta.</h2>
-            <hr />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
+            <ValidationSummary class="text-danger mb-3 small" role="alert" />
+
+            <div class="auth-section">Cuenta</div>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="Input.Email" class="form-label">Email</label>
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control"
+                               autocomplete="username" aria-required="true"
+                               placeholder="nombre@ejemplo.com" />
+                    <ValidationMessage For="() => Input.Email" class="validation-message" />
+                </div>
+                <div class="col-md-4">
+                    <label for="Input.Role" class="form-label">Rol</label>
+                    <InputSelect @bind-Value="Input.Role" id="Input.Role" class="form-select" aria-required="true">
+                        <option value="@UserRoles.General">Usuario general</option>
+                        <option value="@UserRoles.Funcionario">Funcionario</option>
+                        <option value="@UserRoles.Administrador">Administrador</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => Input.Role" class="validation-message" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Input.Password" class="form-label">Contraseña</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password"
+                               class="form-control" autocomplete="new-password"
+                               aria-required="true" placeholder="••••••••" />
+                    <ValidationMessage For="() => Input.Password" class="validation-message" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Input.ConfirmPassword" class="form-label">Confirmar contraseña</label>
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword"
+                               class="form-control" autocomplete="new-password"
+                               aria-required="true" placeholder="••••••••" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="validation-message" />
+                </div>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.NroDocumento" id="Input.NroDocumento" class="form-control" aria-required="true" placeholder="Número de documento" />
-                <label for="Input.NroDocumento">Número de documento</label>
-                <ValidationMessage For="() => Input.NroDocumento" class="text-danger" />
+
+            <div class="auth-section">Documento</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="Input.TipoDocumento" class="form-label">Tipo</label>
+                    <InputText @bind-Value="Input.TipoDocumento" id="Input.TipoDocumento"
+                               class="form-control" aria-required="true"
+                               placeholder="CI, Pasaporte, DNI…" />
+                    <ValidationMessage For="() => Input.TipoDocumento" class="validation-message" />
+                </div>
+                <div class="col-md-4">
+                    <label for="Input.NroDocumento" class="form-label">Número</label>
+                    <InputText @bind-Value="Input.NroDocumento" id="Input.NroDocumento"
+                               class="form-control" aria-required="true" placeholder="12345678" />
+                    <ValidationMessage For="() => Input.NroDocumento" class="validation-message" />
+                </div>
+                <div class="col-md-4">
+                    <label for="Input.PaisDocumento" class="form-label">País emisor</label>
+                    <InputText @bind-Value="Input.PaisDocumento" id="Input.PaisDocumento"
+                               class="form-control" aria-required="true" placeholder="Uruguay" />
+                    <ValidationMessage For="() => Input.PaisDocumento" class="validation-message" />
+                </div>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.TipoDocumento" id="Input.TipoDocumento" class="form-control" aria-required="true" placeholder="Tipo de documento" />
-                <label for="Input.TipoDocumento">Tipo de documento</label>
-                <ValidationMessage For="() => Input.TipoDocumento" class="text-danger" />
+
+            <div class="auth-section">Dirección</div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="Input.PaisDireccion" class="form-label">País de residencia</label>
+                    <InputText @bind-Value="Input.PaisDireccion" id="Input.PaisDireccion"
+                               class="form-control" aria-required="true" placeholder="Uruguay" />
+                    <ValidationMessage For="() => Input.PaisDireccion" class="validation-message" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Input.Localidad" class="form-label">Localidad</label>
+                    <InputText @bind-Value="Input.Localidad" id="Input.Localidad"
+                               class="form-control" aria-required="true" placeholder="Montevideo" />
+                    <ValidationMessage For="() => Input.Localidad" class="validation-message" />
+                </div>
+                <div class="col-md-5">
+                    <label for="Input.Calle" class="form-label">Calle</label>
+                    <InputText @bind-Value="Input.Calle" id="Input.Calle"
+                               class="form-control" aria-required="true" placeholder="Av. 18 de Julio" />
+                    <ValidationMessage For="() => Input.Calle" class="validation-message" />
+                </div>
+                <div class="col-md-3">
+                    <label for="Input.NroDireccion" class="form-label">Número</label>
+                    <InputText @bind-Value="Input.NroDireccion" id="Input.NroDireccion"
+                               class="form-control" aria-required="true" placeholder="1234" />
+                    <ValidationMessage For="() => Input.NroDireccion" class="validation-message" />
+                </div>
+                <div class="col-md-4">
+                    <label for="Input.CodigoPostal" class="form-label">Código postal</label>
+                    <InputText @bind-Value="Input.CodigoPostal" id="Input.CodigoPostal"
+                               class="form-control" aria-required="true" placeholder="11200" />
+                    <ValidationMessage For="() => Input.CodigoPostal" class="validation-message" />
+                </div>
+                <div class="col-md-5">
+                    <label for="Input.Telefono" class="form-label">
+                        Teléfono <span class="text-muted fw-normal" style="font-size:.8rem">(opcional)</span>
+                    </label>
+                    <InputText @bind-Value="Input.Telefono" id="Input.Telefono"
+                               class="form-control" placeholder="+598 99 123 456" />
+                    <ValidationMessage For="() => Input.Telefono" class="validation-message" />
+                </div>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PaisDocumento" id="Input.PaisDocumento" class="form-control" aria-required="true" placeholder="País del documento" />
-                <label for="Input.PaisDocumento">País del documento</label>
-                <ValidationMessage For="() => Input.PaisDocumento" class="text-danger" />
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary btn-lg w-100">Crear cuenta</button>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PaisDireccion" id="Input.PaisDireccion" class="form-control" aria-required="true" placeholder="País de residencia" />
-                <label for="Input.PaisDireccion">País de residencia</label>
-                <ValidationMessage For="() => Input.PaisDireccion" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Localidad" id="Input.Localidad" class="form-control" aria-required="true" placeholder="Localidad" />
-                <label for="Input.Localidad">Localidad</label>
-                <ValidationMessage For="() => Input.Localidad" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Calle" id="Input.Calle" class="form-control" aria-required="true" placeholder="Calle" />
-                <label for="Input.Calle">Calle</label>
-                <ValidationMessage For="() => Input.Calle" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.NroDireccion" id="Input.NroDireccion" class="form-control" aria-required="true" placeholder="Número de puerta" />
-                <label for="Input.NroDireccion">Número de puerta</label>
-                <ValidationMessage For="() => Input.NroDireccion" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.CodigoPostal" id="Input.CodigoPostal" class="form-control" aria-required="true" placeholder="Código postal" />
-                <label for="Input.CodigoPostal">Código postal</label>
-                <ValidationMessage For="() => Input.CodigoPostal" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Telefono" id="Input.Telefono" class="form-control" placeholder="Teléfono" />
-                <label for="Input.Telefono">Teléfono</label>
-                <ValidationMessage For="() => Input.Telefono" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputSelect @bind-Value="Input.Role" id="Input.Role" class="form-select" aria-required="true">
-                    <option value="@UserRoles.General">Usuario general</option>
-                    <option value="@UserRoles.Funcionario">Funcionario</option>
-                    <option value="@UserRoles.Administrador">Administrador</option>
-                </InputSelect>
-                <label for="Input.Role">Rol</label>
-                <ValidationMessage For="() => Input.Role" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Contraseña</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirmar contraseña</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Registrarse</button>
         </EditForm>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Usar otro servicio para registrarse.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
+
+        <div class="auth-footer">
+            ¿Ya tenés cuenta? <a href="Account/Login">Iniciar sesión</a>
+        </div>
     </div>
 </div>
 
@@ -166,13 +200,9 @@
 
         var targetUrl = ReturnUrl;
         if (string.IsNullOrWhiteSpace(targetUrl))
-        {
             targetUrl = "/dashboard";
-        }
         else if (!Uri.IsWellFormedUriString(targetUrl, UriKind.Relative))
-        {
             targetUrl = NavigationManager.ToBaseRelativePath(targetUrl);
-        }
 
         NavigationManager.NavigateTo(targetUrl, replace: true);
     }
@@ -224,7 +254,7 @@
         public string Role { get; set; } = UserRoles.General;
 
         [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [StringLength(100, ErrorMessage = "La contraseña debe tener al menos {2} caracteres.", MinimumLength = 6)]
         [DataType(DataType.Password)]
         [Display(Name = "Contraseña")]
         public string Password { get; set; } = "";
@@ -237,10 +267,7 @@
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (!UserRoles.IsValid(Role))
-            {
                 yield return new ValidationResult("El rol seleccionado no es válido.", [nameof(Role)]);
-            }
-
         }
     }
 }
