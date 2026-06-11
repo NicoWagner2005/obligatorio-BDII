@@ -36,12 +36,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddScoped<UserRepository>();
-builder.Services.AddScoped<UserPhoneRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserPhoneRepository, UserPhoneRepository>();
 builder.Services.AddScoped<UserRegistrationService>();
-builder.Services.AddScoped<EstadioRepository>();
-builder.Services.AddScoped<EventoRepository>();
-builder.Services.AddScoped<VentaRepository>();
+builder.Services.AddScoped<UserPhoneService>();
+builder.Services.AddScoped<IEstadioRepository, EstadioRepository>();
+builder.Services.AddScoped<IEventoRepository, EventoRepository>();
+builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 builder.Services.AddScoped<EstadioService>();
 builder.Services.AddScoped<EventoService>();
 builder.Services.AddScoped<VentaService>();
