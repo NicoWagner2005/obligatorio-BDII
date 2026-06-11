@@ -15,7 +15,7 @@ public record EventoDetalle(
     string? EquipoLocal,
     string? EquipoVisitante);
 
-public class EventoRepository(IConfiguration configuration)
+public class EventoRepository(IConfiguration configuration) : IEventoRepository
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

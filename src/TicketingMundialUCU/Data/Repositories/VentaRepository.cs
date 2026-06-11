@@ -30,7 +30,7 @@ public record EntradaDetalle(
 
 public record ItemCarrito(int IdEvento, int IdEstadio, string IdSector, int Cantidad);
 
-public class VentaRepository(IConfiguration configuration)
+public class VentaRepository(IConfiguration configuration) : IVentaRepository
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

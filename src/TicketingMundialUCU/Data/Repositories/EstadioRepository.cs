@@ -9,7 +9,7 @@ public record Estadio(int IdEstadio, string Nombre, string NombrePaisSede);
 
 public record Sector(int IdEstadio, string IdSector, int CapacidadMax);
 
-public class EstadioRepository(IConfiguration configuration)
+public class EstadioRepository(IConfiguration configuration) : IEstadioRepository
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

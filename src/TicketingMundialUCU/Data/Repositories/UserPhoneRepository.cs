@@ -3,7 +3,7 @@ using Npgsql;
 
 namespace TicketingMundialUCU.Data.Repositories;
 
-public class UserPhoneRepository(IConfiguration configuration)
+public class UserPhoneRepository(IConfiguration configuration) : IUserPhoneRepository
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
