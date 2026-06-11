@@ -2,7 +2,7 @@ using TicketingMundialUCU.Data.Repositories;
 
 namespace TicketingMundialUCU.Services;
 
-public class EstadioService(EstadioRepository repository)
+public class EstadioService(IEstadioRepository repository)
 {
     public Task<IEnumerable<PaisSede>> GetAllPaisesSedeAsync() =>
         repository.GetAllPaisesSedeAsync();

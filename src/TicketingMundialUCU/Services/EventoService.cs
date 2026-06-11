@@ -2,7 +2,9 @@ using TicketingMundialUCU.Data.Repositories;
 
 namespace TicketingMundialUCU.Services;
 
-public class EventoService(EventoRepository eventoRepository, EstadioRepository estadioRepository)
+public class EventoService(
+    IEventoRepository eventoRepository,
+    IEstadioRepository estadioRepository)
 {
     public Task<IEnumerable<Equipo>> GetAllEquiposAsync() =>
         eventoRepository.GetAllEquiposAsync();

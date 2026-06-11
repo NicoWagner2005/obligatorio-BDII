@@ -9,8 +9,8 @@ public sealed class UserRegistrationService(
     UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole> roleManager,
     IUserStore<ApplicationUser> userStore,
-    UserRepository userRepository,
-    UserPhoneRepository userPhoneRepository)
+    IUserRepository userRepository,
+    IUserPhoneRepository userPhoneRepository)
 {
     public async Task<IdentityResult> RegisterUserAsync(UserRegistrationData registrationData)
     {
@@ -118,7 +118,8 @@ public sealed class UserRegistrationService(
     {
         return exception.ConstraintName switch
         {
-            string constraintName when constraintName.Contains("nro_documento", StringComparison.OrdinalIgnoreCase) =>
+            // The migration names this constraint "uq_usuarios_documento", not after the nro_documento column.
+            string constraintName when constraintName.Contains("documento", StringComparison.OrdinalIgnoreCase) =>
                 "Ya existe un usuario registrado con ese número de documento.",
             string constraintName when constraintName.Contains("email", StringComparison.OrdinalIgnoreCase) =>
                 "Ya existe un usuario registrado con ese email.",

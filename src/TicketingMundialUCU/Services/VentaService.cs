@@ -2,7 +2,7 @@ using TicketingMundialUCU.Data.Repositories;
 
 namespace TicketingMundialUCU.Services;
 
-public class VentaService(VentaRepository repository)
+public class VentaService(IVentaRepository repository)
 {
     public Task<TasaComision> GetTasaVigenteAsync() =>
         repository.GetTasaVigenteAsync();
