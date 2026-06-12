@@ -12,7 +12,7 @@ public sealed class EventoServiceTests
 
     public EventoServiceTests()
     {
-        _service = new EventoService(_eventoRepository, _estadioRepository);
+        _service = new EventoService(_eventoRepository, _estadioRepository, () => Hoy);
     }
 
     [Theory]
@@ -74,6 +74,32 @@ public sealed class EventoServiceTests
         Assert.Equal(
             "El precio de cada sector habilitado debe ser mayor a 0.",
             exception.Message);
+    }
+
+    [Fact]
+    public async Task ProgramarEvento_con_fecha_anterior_a_hoy_rechaza_la_operacion()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ProgramarEventoAsync(
+                Hoy.AddDays(-1).AddHours(18),
+                "admin-1",
+                1,
+                2,
+                3,
+                SectoresValidos));
+
+        Assert.Equal("La fecha del evento no puede ser anterior al día de hoy.", exception.Message);
+        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+            Arg.Any<int>(),
+            Arg.Any<DateTime>(),
+            Arg.Any<int?>());
+        await _eventoRepository.DidNotReceive().CreateEventoAsync(
+            Arg.Any<DateTime>(),
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<IEnumerable<(string Sector, decimal Precio)>>());
     }
 
     [Fact]
@@ -151,6 +177,32 @@ public sealed class EventoServiceTests
     }
 
     [Fact]
+    public async Task ActualizarEvento_con_fecha_anterior_a_hoy_rechaza_la_operacion()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ActualizarEventoAsync(
+                9,
+                Hoy.AddDays(-1).AddHours(18),
+                1,
+                2,
+                3,
+                SectoresValidos));
+
+        Assert.Equal("La fecha del evento no puede ser anterior al día de hoy.", exception.Message);
+        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+            Arg.Any<int>(),
+            Arg.Any<DateTime>(),
+            Arg.Any<int?>());
+        await _eventoRepository.DidNotReceive().UpdateEventoAsync(
+            Arg.Any<int>(),
+            Arg.Any<DateTime>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<IEnumerable<(string Sector, decimal Precio)>>());
+    }
+
+    [Fact]
     public async Task AgregarEquipo_duplicado_devuelve_un_mensaje_claro()
     {
         _eventoRepository.CreateEquipoAsync("Uruguay")
@@ -162,6 +214,7 @@ public sealed class EventoServiceTests
         Assert.Equal("Ya existe un equipo con ese nombre.", exception.Message);
     }
 
+    private static readonly DateTime Hoy = new(2026, 6, 12);
     private static readonly DateTime FechaEvento = new(2026, 7, 10, 18, 0, 0);
 
     private static readonly (string Sector, decimal Precio)[] SectoresValidos =
