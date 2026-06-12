@@ -1,4 +1,4 @@
-AspNetUsers(Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed, PasswordHash, SecurityStamp, ConcurrencyStamp, PhoneNumber, PhoneNumberConfirmed, TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount)
+AspNetUsers(Id, UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed, PasswordHash, SecurityStamp, ConcurrencyStamp, TwoFactorEnabled, LockoutEnd, LockoutEnabled, AccessFailedCount)
     PK(Id)
     AK(NormalizedUserName)
 
@@ -26,6 +26,9 @@ AspNetUserRoles(UserId, RoleId)
 AspNetUserTokens(UserId, LoginProvider, Name, Value)
     PK(UserId, LoginProvider, Name)
     FK(UserId) -> AspNetUsers(Id)
+
+__EFMigrationsHistory(MigrationId, ProductVersion)
+	PK(MigrationId)
 
 Usuario(idUsuario, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
     PK(idUsuario)
