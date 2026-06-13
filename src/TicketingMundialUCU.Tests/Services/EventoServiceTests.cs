@@ -12,7 +12,7 @@ public sealed class EventoServiceTests
 
     public EventoServiceTests()
     {
-        _service = new EventoService(_eventoRepository, _estadioRepository, () => Hoy);
+        _service = new EventoService(_eventoRepository, _estadioRepository, () => Ahora);
     }
 
     [Theory]
@@ -77,18 +77,44 @@ public sealed class EventoServiceTests
     }
 
     [Fact]
-    public async Task ProgramarEvento_con_fecha_anterior_a_hoy_rechaza_la_operacion()
+    public async Task ProgramarEvento_con_fecha_hora_anterior_al_momento_actual_rechaza_la_operacion()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
-                Hoy.AddDays(-1).AddHours(18),
+                Ahora.AddDays(-1),
                 "admin-1",
                 1,
                 2,
                 3,
                 SectoresValidos));
 
-        Assert.Equal("La fecha del evento no puede ser anterior al día de hoy.", exception.Message);
+        Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
+        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+            Arg.Any<int>(),
+            Arg.Any<DateTime>(),
+            Arg.Any<int?>());
+        await _eventoRepository.DidNotReceive().CreateEventoAsync(
+            Arg.Any<DateTime>(),
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<int>(),
+            Arg.Any<IEnumerable<(string Sector, decimal Precio)>>());
+    }
+
+    [Fact]
+    public async Task ProgramarEvento_con_hora_de_hoy_ya_pasada_rechaza_la_operacion()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ProgramarEventoAsync(
+                Ahora.AddMinutes(-1),
+                "admin-1",
+                1,
+                2,
+                3,
+                SectoresValidos));
+
+        Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
         await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
@@ -177,18 +203,18 @@ public sealed class EventoServiceTests
     }
 
     [Fact]
-    public async Task ActualizarEvento_con_fecha_anterior_a_hoy_rechaza_la_operacion()
+    public async Task ActualizarEvento_con_fecha_hora_anterior_al_momento_actual_rechaza_la_operacion()
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ActualizarEventoAsync(
                 9,
-                Hoy.AddDays(-1).AddHours(18),
+                Ahora.AddDays(-1),
                 1,
                 2,
                 3,
                 SectoresValidos));
 
-        Assert.Equal("La fecha del evento no puede ser anterior al día de hoy.", exception.Message);
+        Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
         await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
@@ -214,7 +240,7 @@ public sealed class EventoServiceTests
         Assert.Equal("Ya existe un equipo con ese nombre.", exception.Message);
     }
 
-    private static readonly DateTime Hoy = new(2026, 6, 12);
+    private static readonly DateTime Ahora = new(2026, 6, 12, 15, 30, 0);
     private static readonly DateTime FechaEvento = new(2026, 7, 10, 18, 0, 0);
 
     private static readonly (string Sector, decimal Precio)[] SectoresValidos =
