@@ -158,3 +158,4 @@ DispositivoEscaneo(idDispositivo, idFuncionario)
 
 tasa_comision(id_tasa, tasa, fecha_desde)
 PK(id_tasa)
+
