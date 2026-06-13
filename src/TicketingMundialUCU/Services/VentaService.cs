@@ -2,7 +2,7 @@ using TicketingMundialUCU.Data.Repositories;
 
 namespace TicketingMundialUCU.Services;
 
-public class VentaService(IVentaRepository repository)
+public class VentaService(IVentaRepository repository, IEntradaRepository entradaRepository)
 {
     public Task<TasaComision> GetTasaVigenteAsync() =>
         repository.GetTasaVigenteAsync();
@@ -11,13 +11,13 @@ public class VentaService(IVentaRepository repository)
         repository.GetDisponibilidadAsync(idEvento, idEstadio);
 
     public Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario) =>
-        repository.GetEntradasByUsuarioAsync(idUsuario);
+        entradaRepository.GetEntradasByUsuarioAsync(idUsuario);
 
     public Task<IEnumerable<VentaResumen>> GetAllVentasAsync() =>
         repository.GetAllVentasAsync();
 
     public Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta) =>
-        repository.GetDetallesByVentaAsync(idVenta);
+        entradaRepository.GetDetallesByVentaAsync(idVenta);
 
     public async Task<int> ComprarEntradasAsync(string idUsuario, List<ItemCarrito> items)
     {

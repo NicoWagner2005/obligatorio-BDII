@@ -353,7 +353,7 @@
     private string? _successMessage;
     private string? _adminId;
 
-    private string FechaMinimaEventoInput => DateTime.Today.ToString("yyyy-MM-ddTHH:mm");
+    private string FechaMinimaEventoInput => DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
 
     protected override async Task OnInitializedAsync()
     {

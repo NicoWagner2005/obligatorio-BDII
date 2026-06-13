@@ -5,7 +5,7 @@ namespace TicketingMundialUCU.Services;
 public class EventoService(
     IEventoRepository eventoRepository,
     IEstadioRepository estadioRepository,
-    Func<DateTime>? todayProvider = null)
+    Func<DateTime>? nowProvider = null)
 {
     public Task<IEnumerable<Equipo>> GetAllEquiposAsync() =>
         eventoRepository.GetAllEquiposAsync();
@@ -82,8 +82,8 @@ public class EventoService(
         int idEquipoVisitante,
         List<(string Sector, decimal Precio)> sectores)
     {
-        if (fechaHora.Date < Hoy)
-            throw new InvalidOperationException("La fecha del evento no puede ser anterior al día de hoy.");
+        if (fechaHora < Ahora)
+            throw new InvalidOperationException("La fecha y hora del evento no puede ser anterior al momento actual.");
         if (idEstadio == 0)
             throw new InvalidOperationException("Debe seleccionar un estadio.");
         if (idEquipoLocal == 0)
@@ -98,5 +98,5 @@ public class EventoService(
             throw new InvalidOperationException("El precio de cada sector habilitado debe ser mayor a 0.");
     }
 
-    private DateTime Hoy => (todayProvider?.Invoke() ?? DateTime.Today).Date;
+    private DateTime Ahora => nowProvider?.Invoke() ?? DateTime.Now;
 }
