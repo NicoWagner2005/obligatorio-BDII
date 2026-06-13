@@ -43,6 +43,7 @@ builder.Services.AddScoped<UserPhoneService>();
 builder.Services.AddScoped<IEstadioRepository, EstadioRepository>();
 builder.Services.AddScoped<IEventoRepository, EventoRepository>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
+builder.Services.AddScoped<IEntradaRepository, EntradaRepository>();
 builder.Services.AddScoped<EstadioService>();
 builder.Services.AddScoped<EventoService>();
 builder.Services.AddScoped<VentaService>();

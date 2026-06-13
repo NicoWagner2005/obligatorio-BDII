@@ -4,7 +4,8 @@ namespace TicketingMundialUCU.Services;
 
 public class EventoService(
     IEventoRepository eventoRepository,
-    IEstadioRepository estadioRepository)
+    IEstadioRepository estadioRepository,
+    Func<DateTime>? nowProvider = null)
 {
     public Task<IEnumerable<Equipo>> GetAllEquiposAsync() =>
         eventoRepository.GetAllEquiposAsync();
@@ -42,7 +43,7 @@ public class EventoService(
         IEnumerable<(string Sector, decimal Precio)> sectoresConPrecio)
     {
         var sectores = sectoresConPrecio.ToList();
-        ValidarEvento(idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+        ValidarEvento(fechaHora, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
 
         if (await eventoRepository.ExisteSuperposicionAsync(idEstadio, fechaHora))
             throw new InvalidOperationException(
@@ -61,7 +62,7 @@ public class EventoService(
         IEnumerable<(string Sector, decimal Precio)> sectoresConPrecio)
     {
         var sectores = sectoresConPrecio.ToList();
-        ValidarEvento(idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+        ValidarEvento(fechaHora, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
 
         if (await eventoRepository.ExisteSuperposicionAsync(idEstadio, fechaHora, idEvento))
             throw new InvalidOperationException(
@@ -74,12 +75,15 @@ public class EventoService(
     public Task EliminarEventoAsync(int idEvento) =>
         eventoRepository.DeleteEventoAsync(idEvento);
 
-    private static void ValidarEvento(
+    private void ValidarEvento(
+        DateTime fechaHora,
         int idEstadio,
         int idEquipoLocal,
         int idEquipoVisitante,
         List<(string Sector, decimal Precio)> sectores)
     {
+        if (fechaHora < Ahora)
+            throw new InvalidOperationException("La fecha y hora del evento no puede ser anterior al momento actual.");
         if (idEstadio == 0)
             throw new InvalidOperationException("Debe seleccionar un estadio.");
         if (idEquipoLocal == 0)
@@ -93,4 +97,6 @@ public class EventoService(
         if (sectores.Any(s => s.Precio <= 0))
             throw new InvalidOperationException("El precio de cada sector habilitado debe ser mayor a 0.");
     }
+
+    private DateTime Ahora => nowProvider?.Invoke() ?? DateTime.Now;
 }

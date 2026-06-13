@@ -7,26 +7,13 @@ public record TasaComision(int IdTasa, decimal Tasa, DateTime FechaDesde);
 
 public record VentaResumen(
     int IdVenta,
-    string IdUsuario,
+    string IdComprador,
     string EmailUsuario,
     DateTime FechaVenta,
     string Estado,
     decimal MontoTotal,
     decimal TasaComisionAplicada,
     int CantidadEntradas);
-
-public record EntradaDetalle(
-    int IdDetalle,
-    int IdVenta,
-    int IdEvento,
-    DateTime FechaHoraEvento,
-    string NombreEstadio,
-    string? EquipoLocal,
-    string? EquipoVisitante,
-    string IdSector,
-    decimal PrecioUnitario,
-    Guid CodigoEntrada,
-    string EstadoVenta);
 
 public record ItemCarrito(int IdEvento, int IdEstadio, string IdSector, int Cantidad);
 
@@ -58,7 +45,6 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        // Obtener precios y verificar capacidad disponible (RF-25)
         var precios = new Dictionary<(int, int, string), decimal>();
         foreach (var item in itemsList)
         {
@@ -70,33 +56,42 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
                 new { item.IdEvento, item.IdEstadio, item.IdSector },
                 transaction);
             precios[(item.IdEvento, item.IdEstadio, item.IdSector)] = precio;
+        }
 
+        // Verificar capacidad disponible (RF-25)
+        foreach (var item in itemsList.GroupBy(i => new { i.IdEvento, i.IdEstadio, i.IdSector }))
+        {
             var capacidadMax = await connection.ExecuteScalarAsync<int>(
                 """
                 SELECT capacidad_max FROM sectores
                 WHERE id_estadio = @IdEstadio AND id_sector = @IdSector
                 """,
-                new { item.IdEstadio, item.IdSector },
+                new { item.Key.IdEstadio, item.Key.IdSector },
                 transaction);
 
             var vendidas = await connection.ExecuteScalarAsync<int>(
                 """
-                SELECT COUNT(*) FROM detalle_venta dv
+                SELECT COUNT(*)
+                FROM entradas en
+                JOIN detalle_venta dv
+                    ON en.id_venta = dv.id_venta
+                    AND en.nro_linea_detalle_venta = dv.nro_linea
                 JOIN ventas v ON dv.id_venta = v.id_venta
                 WHERE dv.id_evento = @IdEvento
                   AND dv.id_estadio = @IdEstadio
                   AND dv.id_sector = @IdSector
                   AND v.estado != 'cancelada'
                 """,
-                new { item.IdEvento, item.IdEstadio, item.IdSector },
+                new { item.Key.IdEvento, item.Key.IdEstadio, item.Key.IdSector },
                 transaction);
 
-            if (vendidas + item.Cantidad > capacidadMax)
+            var solicitadas = item.Sum(i => i.Cantidad);
+            if (vendidas + solicitadas > capacidadMax)
             {
                 var disponibles = capacidadMax - vendidas;
                 throw new InvalidOperationException(
-                    $"Sector {item.IdSector}: capacidad insuficiente. " +
-                    $"Disponibles: {disponibles}, solicitadas: {item.Cantidad}.");
+                    $"Sector {item.Key.IdSector}: capacidad insuficiente. " +
+                    $"Disponibles: {disponibles}, solicitadas: {solicitadas}.");
             }
         }
 
@@ -105,7 +100,7 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
 
         var idVenta = await connection.ExecuteScalarAsync<int>(
             """
-            INSERT INTO ventas (id_usuario, fecha_venta, estado, monto_total, tasa_comision_aplicada, id_tasa)
+            INSERT INTO ventas (id_comprador, fecha_venta, estado, monto_total, tasa_comision_aplicada, id_tasa)
             VALUES (@IdUsuario, NOW(), 'pendiente', @MontoTotal, @Tasa, @IdTasa)
             RETURNING id_venta
             """,
@@ -118,66 +113,56 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
             },
             transaction);
 
-        // RF-45/RF-46: una fila por entrada individual con codigo uuid único
+        // RF-45/RF-46: se emite una entrada individual por boleto comprado.
+        var nroLinea = 1;
         foreach (var item in itemsList)
         {
             var precioUnit = precios[(item.IdEvento, item.IdEstadio, item.IdSector)];
-            for (int i = 0; i < item.Cantidad; i++)
+            var subtotalItem = precioUnit * item.Cantidad;
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO detalle_venta
+                    (id_venta, nro_linea, id_evento, id_estadio, id_sector, cantidad, subtotal)
+                VALUES
+                    (@IdVenta, @NroLinea, @IdEvento, @IdEstadio, @IdSector, @Cantidad, @Subtotal)
+                """,
+                new
+                {
+                    IdVenta = idVenta,
+                    NroLinea = nroLinea,
+                    item.IdEvento,
+                    item.IdEstadio,
+                    item.IdSector,
+                    item.Cantidad,
+                    Subtotal = subtotalItem,
+                },
+                transaction);
+
+            for (var i = 0; i < item.Cantidad; i++)
             {
                 await connection.ExecuteAsync(
                     """
-                    INSERT INTO detalle_venta
-                        (id_venta, id_evento, id_estadio, id_sector, precio_unitario, codigo_entrada)
+                    INSERT INTO entradas
+                        (id_entrada, id_poseedor, id_venta, nro_linea_detalle_venta)
                     VALUES
-                        (@IdVenta, @IdEvento, @IdEstadio, @IdSector, @PrecioUnitario, gen_random_uuid())
+                        (@IdEntrada, @IdUsuario, @IdVenta, @NroLinea)
                     """,
                     new
                     {
+                        IdEntrada = Guid.NewGuid(),
+                        IdUsuario = idUsuario,
                         IdVenta = idVenta,
-                        item.IdEvento,
-                        item.IdEstadio,
-                        item.IdSector,
-                        PrecioUnitario = precioUnit,
+                        NroLinea = nroLinea,
                     },
                     transaction);
             }
+
+            nroLinea++;
         }
 
         await transaction.CommitAsync();
         return idVenta;
-    }
-
-    public async Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario)
-    {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryAsync<EntradaDetalle>(
-            """
-            SELECT
-                dv.id_detalle           AS "IdDetalle",
-                dv.id_venta             AS "IdVenta",
-                dv.id_evento            AS "IdEvento",
-                e.fecha_hora            AS "FechaHoraEvento",
-                est.nombre              AS "NombreEstadio",
-                eq_l.nombre             AS "EquipoLocal",
-                eq_v.nombre             AS "EquipoVisitante",
-                dv.id_sector            AS "IdSector",
-                dv.precio_unitario      AS "PrecioUnitario",
-                dv.codigo_entrada       AS "CodigoEntrada",
-                v.estado                AS "EstadoVenta"
-            FROM detalle_venta dv
-            JOIN ventas v ON dv.id_venta = v.id_venta
-            JOIN eventos e ON dv.id_evento = e.id_evento
-            JOIN estadios est ON e.id_estadio = est.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
-            WHERE v.id_usuario = @IdUsuario
-            ORDER BY v.fecha_venta DESC, dv.id_detalle
-            """,
-            new { IdUsuario = idUsuario });
     }
 
     public async Task<IEnumerable<VentaResumen>> GetAllVentasAsync()
@@ -187,52 +172,22 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
             """
             SELECT
                 v.id_venta                  AS "IdVenta",
-                v.id_usuario                AS "IdUsuario",
+                v.id_comprador              AS "IdComprador",
                 u."Email"                   AS "EmailUsuario",
                 v.fecha_venta               AS "FechaVenta",
                 v.estado                    AS "Estado",
                 v.monto_total               AS "MontoTotal",
                 v.tasa_comision_aplicada    AS "TasaComisionAplicada",
-                COUNT(dv.id_detalle)::int   AS "CantidadEntradas"
+                COUNT(en.id_entrada)::int   AS "CantidadEntradas"
             FROM ventas v
-            JOIN "AspNetUsers" u ON v.id_usuario = u."Id"
+            JOIN "AspNetUsers" u ON v.id_comprador = u."Id"
             LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+            LEFT JOIN entradas en
+                ON en.id_venta = dv.id_venta
+                AND en.nro_linea_detalle_venta = dv.nro_linea
             GROUP BY v.id_venta, u."Email"
             ORDER BY v.fecha_venta DESC
             """);
-    }
-
-    public async Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta)
-    {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryAsync<EntradaDetalle>(
-            """
-            SELECT
-                dv.id_detalle           AS "IdDetalle",
-                dv.id_venta             AS "IdVenta",
-                dv.id_evento            AS "IdEvento",
-                e.fecha_hora            AS "FechaHoraEvento",
-                est.nombre              AS "NombreEstadio",
-                eq_l.nombre             AS "EquipoLocal",
-                eq_v.nombre             AS "EquipoVisitante",
-                dv.id_sector            AS "IdSector",
-                dv.precio_unitario      AS "PrecioUnitario",
-                dv.codigo_entrada       AS "CodigoEntrada",
-                v.estado                AS "EstadoVenta"
-            FROM detalle_venta dv
-            JOIN ventas v ON dv.id_venta = v.id_venta
-            JOIN eventos e ON dv.id_evento = e.id_evento
-            JOIN estadios est ON e.id_estadio = est.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
-            WHERE dv.id_venta = @IdVenta
-            ORDER BY dv.id_detalle
-            """,
-            new { IdVenta = idVenta });
     }
 
     // Retorna cuántas entradas quedan disponibles por sector para un evento (RF-25)
@@ -244,7 +199,7 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
             SELECT
                 s.id_sector                                     AS "IdSector",
                 s.capacidad_max                                 AS "CapacidadMax",
-                COALESCE(COUNT(dv.id_detalle), 0)::int          AS "Vendidas"
+                COALESCE(COUNT(en.id_entrada), 0)::int          AS "Vendidas"
             FROM sectores s
             LEFT JOIN evento_habilita_sector ehs
                 ON ehs.id_estadio = s.id_estadio AND ehs.id_sector = s.id_sector
@@ -253,6 +208,9 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
                 ON dv.id_evento = @IdEvento
                 AND dv.id_estadio = s.id_estadio
                 AND dv.id_sector = s.id_sector
+            LEFT JOIN entradas en
+                ON en.id_venta = dv.id_venta
+                AND en.nro_linea_detalle_venta = dv.nro_linea
                 AND EXISTS (
                     SELECT 1 FROM ventas v
                     WHERE v.id_venta = dv.id_venta AND v.estado != 'cancelada'

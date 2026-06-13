@@ -7,11 +7,12 @@ namespace TicketingMundialUCU.Tests.Services;
 public sealed class VentaServiceTests
 {
     private readonly IVentaRepository _repository = Substitute.For<IVentaRepository>();
+    private readonly IEntradaRepository _entradaRepository = Substitute.For<IEntradaRepository>();
     private readonly VentaService _service;
 
     public VentaServiceTests()
     {
-        _service = new VentaService(_repository);
+        _service = new VentaService(_repository, _entradaRepository);
     }
 
     [Fact]
@@ -102,5 +103,43 @@ public sealed class VentaServiceTests
         await _repository.DidNotReceive().UpdateEstadoVentaAsync(
             Arg.Any<int>(),
             Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task GetEntradasByUsuario_delega_en_entrada_repository()
+    {
+        var entradas = new[]
+        {
+            new EntradaDetalle(
+                Guid.NewGuid(),
+                1,
+                1,
+                10,
+                new DateTime(2026, 6, 20, 18, 0, 0),
+                "Estadio",
+                "Local",
+                "Visitante",
+                "A",
+                100m,
+                "paga")
+        };
+        _entradaRepository.GetEntradasByUsuarioAsync("usuario-1").Returns(entradas);
+
+        var resultado = await _service.GetEntradasByUsuarioAsync("usuario-1");
+
+        Assert.Same(entradas, resultado);
+        await _entradaRepository.Received(1).GetEntradasByUsuarioAsync("usuario-1");
+    }
+
+    [Fact]
+    public async Task GetDetallesByVenta_delega_en_entrada_repository()
+    {
+        var entradas = Array.Empty<EntradaDetalle>();
+        _entradaRepository.GetDetallesByVentaAsync(37).Returns(entradas);
+
+        var resultado = await _service.GetDetallesByVentaAsync(37);
+
+        Assert.Same(entradas, resultado);
+        await _entradaRepository.Received(1).GetDetallesByVentaAsync(37);
     }
 }

@@ -301,7 +301,7 @@ else if (_paso == 2 && _eventoSeleccionado is not null)
 
             var idVenta = await VentaService.ComprarEntradasAsync(_userId, items);
             var entradas = (await VentaService.GetDetallesByVentaAsync(idVenta)).ToList();
-            _entradasConfirmadas = entradas.Select(e => e.CodigoEntrada).ToList();
+            _entradasConfirmadas = entradas.Select(e => e.IdEntrada).ToList();
             _ventaConfirmada = idVenta;
         }
         catch (Exception ex)
