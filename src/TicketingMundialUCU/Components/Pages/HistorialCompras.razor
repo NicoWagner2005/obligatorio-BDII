@@ -1,0 +1,221 @@
+@page "/mis-compras"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Services
+@using System.Security.Claims
+@attribute [Authorize(Roles = "general")]
+@inject VentaService VentaService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Historial de compras</PageTitle>
+
+<div class="page-header">
+    <h1>Historial de compras</h1>
+    <p class="page-subtitle">Todas tus transacciones de entradas</p>
+</div>
+
+@if (_cargando)
+{
+    <div class="text-center text-muted py-5">
+        <p class="mb-0">Cargando historial…</p>
+    </div>
+}
+else if (!_ventas.Any())
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.4">🧾</div>
+            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">Sin compras registradas</h5>
+            <p class="text-muted small mb-3">Todavía no realizaste ninguna compra.</p>
+            <a href="/comprar" class="btn btn-primary">Comprar entradas</a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">🧾</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Count</div>
+                    <div class="stat-label">Compras realizadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-purple">🎫</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Sum(v => v.CantidadEntradas)</div>
+                    <div class="stat-label">Entradas totales</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-amber">💵</div>
+                <div class="stat-body">
+                    <div class="stat-value">$@_ventas.Sum(v => v.MontoTotal).ToString("N0")</div>
+                    <div class="stat-label">Total gastado</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">✅</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_ventas.Count(v => v.Estado == "paga")</div>
+                    <div class="stat-label">Compras pagas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction list -->
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Movimientos</h6>
+            <span class="badge bg-secondary">@_ventas.Count</span>
+        </div>
+        <div class="card-body p-0">
+            @{
+                string? mesActual = null;
+            }
+            @foreach (var venta in _ventas)
+            {
+                var mesLabel = venta.FechaVenta.ToString("MMMM yyyy");
+                var estadoPill = venta.Estado switch {
+                    "paga"       => "sp-paid",
+                    "confirmada" => "sp-confirmed",
+                    _            => "sp-pending",
+                };
+                var expandida = _ventaExpandida == venta.IdVenta;
+
+                @if (mesLabel != mesActual)
+                {
+                    mesActual = mesLabel;
+                    <div class="px-4 py-2 border-bottom"
+                         style="background:var(--surface-alt,#f8f9fa);font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)">
+                        @mesLabel
+                    </div>
+                }
+
+                <div class="border-bottom" style="transition:background .1s">
+                    <!-- Transaction row -->
+                    <div class="d-flex align-items-center gap-3 px-4 py-3"
+                         style="cursor:pointer"
+                         @onclick="() => ToggleDetalle(venta.IdVenta)">
+
+                        <!-- Date badge -->
+                        <div class="flex-shrink-0 text-center"
+                             style="width:2.75rem">
+                            <div style="font-size:1.1rem;font-weight:700;line-height:1;color:var(--text-1)">
+                                @venta.FechaVenta.ToString("dd")
+                            </div>
+                            <div style="font-size:.65rem;text-transform:uppercase;color:var(--text-3);letter-spacing:.04em">
+                                @venta.FechaVenta.ToString("MMM")
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold" style="font-size:.9rem">
+                                Compra #@venta.IdVenta
+                            </div>
+                            <div style="font-size:.775rem;color:var(--text-3)">
+                                @venta.CantidadEntradas entrada@(venta.CantidadEntradas != 1 ? "s" : "")
+                                · @venta.FechaVenta.ToString("HH:mm") hs
+                                · comisión @((venta.TasaComisionAplicada * 100).ToString("0.##"))%
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="flex-shrink-0 text-end">
+                            <div class="fw-bold" style="font-size:.95rem;color:var(--text-1)">
+                                -$@venta.MontoTotal.ToString("N0")
+                            </div>
+                            <div class="mt-1">
+                                <span class="status-pill @estadoPill">@venta.Estado</span>
+                            </div>
+                        </div>
+
+                        <!-- Chevron -->
+                        <div class="flex-shrink-0" style="color:var(--text-3);font-size:.75rem">
+                            @(expandida ? "▲" : "▼")
+                        </div>
+                    </div>
+
+                    <!-- Expanded ticket details -->
+                    @if (expandida)
+                    {
+                        var detalles = _detalles.GetValueOrDefault(venta.IdVenta, []);
+                        <div class="border-top px-4 py-3" style="background:var(--surface-alt,#f8f9fa)">
+                            @if (!detalles.Any())
+                            {
+                                <p class="text-muted small mb-0">Cargando entradas…</p>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach (var d in detalles)
+                                    {
+                                        <div class="d-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 border"
+                                             style="font-size:.82rem">
+                                            <span class="sector-badge sector-@d.IdSector flex-shrink-0">@d.IdSector</span>
+                                            <div class="flex-grow-1 min-w-0">
+                                                <div class="fw-semibold">
+                                                    @(d.EquipoLocal ?? "—") <span style="color:var(--text-3)">vs</span> @(d.EquipoVisitante ?? "—")
+                                                </div>
+                                                <div style="color:var(--text-3);font-size:.74rem">
+                                                    @d.FechaHoraEvento.ToString("dd MMM yyyy · HH:mm") hs · @d.NombreEstadio
+                                                </div>
+                                            </div>
+                                            <div class="text-end flex-shrink-0">
+                                                <div class="fw-semibold">$@d.PrecioUnitario.ToString("N0")</div>
+                                                <code class="ticket-code" style="font-size:.65rem">@d.CodigoEntrada.ToString()[..8].ToUpper()</code>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<VentaResumen> _ventas = [];
+    private Dictionary<int, List<EntradaDetalle>> _detalles = [];
+    private int? _ventaExpandida;
+    private bool _cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is not null)
+            _ventas = (await VentaService.GetVentasByUsuarioAsync(userId)).ToList();
+        _cargando = false;
+    }
+
+    private async Task ToggleDetalle(int idVenta)
+    {
+        if (_ventaExpandida == idVenta)
+        {
+            _ventaExpandida = null;
+            return;
+        }
+        _ventaExpandida = idVenta;
+        if (!_detalles.ContainsKey(idVenta))
+        {
+            var detalles = await VentaService.GetDetallesByVentaAsync(idVenta);
+            _detalles[idVenta] = detalles.ToList();
+        }
+    }
+}

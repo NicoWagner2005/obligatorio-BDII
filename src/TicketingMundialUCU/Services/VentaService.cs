@@ -16,6 +16,9 @@ public class VentaService(IVentaRepository repository)
     public Task<IEnumerable<VentaResumen>> GetAllVentasAsync() =>
         repository.GetAllVentasAsync();
 
+    public Task<IEnumerable<VentaResumen>> GetVentasByUsuarioAsync(string idUsuario) =>
+        repository.GetVentasByUsuarioAsync(idUsuario);
+
     public Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta) =>
         repository.GetDetallesByVentaAsync(idVenta);
 

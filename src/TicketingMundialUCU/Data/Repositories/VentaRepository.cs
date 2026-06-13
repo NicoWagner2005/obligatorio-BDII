@@ -202,6 +202,30 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
             """);
     }
 
+    public async Task<IEnumerable<VentaResumen>> GetVentasByUsuarioAsync(string idUsuario)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryAsync<VentaResumen>(
+            """
+            SELECT
+                v.id_venta                  AS "IdVenta",
+                v.id_usuario                AS "IdUsuario",
+                u."Email"                   AS "EmailUsuario",
+                v.fecha_venta               AS "FechaVenta",
+                v.estado                    AS "Estado",
+                v.monto_total               AS "MontoTotal",
+                v.tasa_comision_aplicada    AS "TasaComisionAplicada",
+                COUNT(dv.id_detalle)::int   AS "CantidadEntradas"
+            FROM ventas v
+            JOIN "AspNetUsers" u ON v.id_usuario = u."Id"
+            LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+            WHERE v.id_usuario = @IdUsuario
+            GROUP BY v.id_venta, u."Email"
+            ORDER BY v.fecha_venta DESC
+            """,
+            new { IdUsuario = idUsuario });
+    }
+
     public async Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta)
     {
         await using var connection = new NpgsqlConnection(_connectionString);

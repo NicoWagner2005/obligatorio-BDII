@@ -9,6 +9,7 @@ public interface IVentaRepository
         TasaComision tasa);
     Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario);
     Task<IEnumerable<VentaResumen>> GetAllVentasAsync();
+    Task<IEnumerable<VentaResumen>> GetVentasByUsuarioAsync(string idUsuario);
     Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta);
     Task<Dictionary<string, int>> GetDisponibilidadAsync(int idEvento, int idEstadio);
     Task UpdateEstadoVentaAsync(int idVenta, string estado);
