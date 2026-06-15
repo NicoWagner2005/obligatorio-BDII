@@ -32,7 +32,8 @@ public sealed class UserRegistrationServiceTests
             default!,
             default!,
             default!,
-            default!);
+            default!,
+            default);
     }
 
     [Fact]
@@ -54,7 +55,8 @@ public sealed class UserRegistrationServiceTests
             default!,
             default!,
             default!,
-            default!);
+            default!,
+            default);
     }
 
     [Theory]
@@ -82,7 +84,8 @@ public sealed class UserRegistrationServiceTests
             data.Calle,
             data.NroDireccion,
             data.CodigoPostal,
-            role);
+            role,
+            data.PaisSedeAsignado);
         await context.UserPhoneRepository.Received(1).AddAsync(user.Id, data.Telefono);
     }
 
@@ -98,6 +101,37 @@ public sealed class UserRegistrationServiceTests
         await context.UserPhoneRepository.DidNotReceive().AddAsync(
             Arg.Any<string>(),
             Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task RegistrarAdministrador_sin_pais_sede_no_crea_el_usuario()
+    {
+        await using var context = CrearContexto();
+        var data = CrearDatos(role: UserRoles.Administrador) with
+        {
+            PaisSedeAsignado = null
+        };
+
+        var result = await context.Service.RegisterUserAsync(data);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Code == "InvalidAdministratorCountry");
+        Assert.Null(await context.UserManager.FindByEmailAsync(data.Email));
+    }
+
+    [Fact]
+    public async Task RegistrarAdministrador_con_pais_no_catalogado_no_crea_el_usuario()
+    {
+        await using var context = CrearContexto();
+        var data = CrearDatos(
+            role: UserRoles.Administrador,
+            paisSedeAsignado: "Uruguay");
+
+        var result = await context.Service.RegisterUserAsync(data);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Code == "InvalidAdministratorCountry");
+        Assert.Null(await context.UserManager.FindByEmailAsync(data.Email));
     }
 
     [Theory]
@@ -121,7 +155,8 @@ public sealed class UserRegistrationServiceTests
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
-                Arg.Any<string>())
+                Arg.Any<string>(),
+                Arg.Any<string?>())
             .Returns(Task.FromException(CrearUniqueViolation(constraintName)));
 
         var result = await context.Service.RegisterUserAsync(data);
@@ -148,7 +183,8 @@ public sealed class UserRegistrationServiceTests
     private static UserRegistrationData CrearDatos(
         string role = UserRoles.General,
         string password = "Password1!",
-        string telefono = "+59899123456") =>
+        string telefono = "+59899123456",
+        string? paisSedeAsignado = null) =>
         new(
             "persona@ucu.edu.uy",
             password,
@@ -161,7 +197,10 @@ public sealed class UserRegistrationServiceTests
             "1234",
             "11200",
             telefono,
-            role);
+            role,
+            role == UserRoles.Administrador
+                ? paisSedeAsignado ?? "México"
+                : paisSedeAsignado);
 
     private static PostgresException CrearUniqueViolation(string constraintName) =>
         new(
@@ -200,12 +239,19 @@ public sealed class UserRegistrationServiceTests
 
             UserRepository = Substitute.For<IUserRepository>();
             UserPhoneRepository = Substitute.For<IUserPhoneRepository>();
+            var currentUser = Substitute.For<ICurrentUserContext>();
+            var jurisdictionRepository = Substitute.For<IAdministratorJurisdictionRepository>();
+            jurisdictionRepository.CountryExistsAsync("México").Returns(true);
+            var jurisdictionService = new AdministratorJurisdictionService(
+                jurisdictionRepository,
+                currentUser);
             Service = new UserRegistrationService(
                 UserManager,
                 roleManager,
                 userStore,
                 UserRepository,
-                UserPhoneRepository);
+                UserPhoneRepository,
+                jurisdictionService);
         }
 
         public UserManager<ApplicationUser> UserManager { get; }

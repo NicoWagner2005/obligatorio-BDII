@@ -6,27 +6,25 @@ namespace TicketingMundialUCU.Tests.Services;
 
 public sealed class EstadioServiceTests
 {
+    private const string Country = "México";
+
     private readonly IEstadioRepository _repository = Substitute.For<IEstadioRepository>();
     private readonly EstadioService _service;
 
     public EstadioServiceTests()
     {
-        _service = new EstadioService(_repository);
-    }
+        var currentUser = Substitute.For<ICurrentUserContext>();
+        currentUser.GetRequiredAdministratorIdAsync().Returns("admin-1");
 
-    [Fact]
-    public async Task RegistrarEstadio_sin_pais_rechaza_la_operacion()
-    {
-        var sectores = CrearSectoresValidos();
+        var jurisdictionRepository = Substitute.For<IAdministratorJurisdictionRepository>();
+        jurisdictionRepository
+            .GetCountryForAdministratorAsync("admin-1")
+            .Returns(Country);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.RegistrarEstadioAsync("Centenario", " ", sectores));
-
-        Assert.Equal("Debe seleccionar un país sede.", exception.Message);
-        await _repository.DidNotReceive().CreateEstadioAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<Dictionary<string, int>>());
+        var jurisdictionService = new AdministratorJurisdictionService(
+            jurisdictionRepository,
+            currentUser);
+        _service = new EstadioService(_repository, jurisdictionService);
     }
 
     [Theory]
@@ -38,19 +36,31 @@ public sealed class EstadioServiceTests
         sectores["A"] = capacidad;
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.RegistrarEstadioAsync("Centenario", "Uruguay", sectores));
+            _service.RegistrarEstadioAsync("Azteca", sectores));
 
         Assert.Equal("La capacidad de cada sector debe ser mayor a 0.", exception.Message);
     }
 
     [Fact]
-    public async Task RegistrarEstadio_con_datos_validos_guarda_el_estadio()
+    public async Task RegistrarEstadio_usa_el_pais_del_administrador()
     {
         var sectores = CrearSectoresValidos();
 
-        await _service.RegistrarEstadioAsync("Centenario", "Uruguay", sectores);
+        await _service.RegistrarEstadioAsync("Azteca", sectores);
 
-        await _repository.Received(1).CreateEstadioAsync("Centenario", "Uruguay", sectores);
+        await _repository.Received(1).CreateEstadioAsync("Azteca", Country, sectores);
+    }
+
+    [Fact]
+    public async Task ActualizarEstadio_fuera_de_jurisdiccion_rechaza_la_operacion()
+    {
+        var sectores = CrearSectoresValidos();
+        _repository.UpdateEstadioAsync(10, "Azteca", Country, sectores).Returns(false);
+
+        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.ActualizarEstadioAsync(10, "Azteca", sectores));
+
+        Assert.Contains("fuera de su país sede", exception.Message);
     }
 
     [Fact]
@@ -60,34 +70,23 @@ public sealed class EstadioServiceTests
         sectores["D"] = 0;
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ActualizarEstadioAsync(10, "Centenario", "Uruguay", sectores));
+            _service.ActualizarEstadioAsync(10, "Azteca", sectores));
 
         Assert.Equal("La capacidad de cada sector debe ser mayor a 0.", exception.Message);
-        await _repository.DidNotReceive().UpdateEstadioAsync(
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<Dictionary<string, int>>());
+        await _repository.DidNotReceiveWithAnyArgs().UpdateEstadioAsync(
+            default,
+            default!,
+            default!,
+            default!);
     }
 
     [Fact]
-    public async Task AgregarPais_duplicado_devuelve_un_mensaje_claro()
+    public async Task EliminarEstadio_fuera_de_jurisdiccion_rechaza_la_operacion()
     {
-        _repository.CreatePaisSedeAsync("Uruguay")
-            .Returns(Task.FromException(new Exception("duplicate key value")));
+        _repository.DeleteEstadioAsync(8, Country).Returns(false);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.AgregarPaisSedeAsync("Uruguay"));
-
-        Assert.Equal("Ya existe un país sede con ese nombre.", exception.Message);
-    }
-
-    [Fact]
-    public async Task EliminarEstadio_delega_la_eliminacion_al_repositorio()
-    {
-        await _service.EliminarEstadioAsync(8);
-
-        await _repository.Received(1).DeleteEstadioAsync(8);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.EliminarEstadioAsync(8));
     }
 
     private static Dictionary<string, int> CrearSectoresValidos() => new()

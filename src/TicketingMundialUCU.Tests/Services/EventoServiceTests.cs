@@ -6,13 +6,38 @@ namespace TicketingMundialUCU.Tests.Services;
 
 public sealed class EventoServiceTests
 {
+    private const string Country = "México";
+
     private readonly IEventoRepository _eventoRepository = Substitute.For<IEventoRepository>();
     private readonly IEstadioRepository _estadioRepository = Substitute.For<IEstadioRepository>();
     private readonly EventoService _service;
 
     public EventoServiceTests()
     {
-        _service = new EventoService(_eventoRepository, _estadioRepository, () => Ahora);
+        var currentUser = Substitute.For<ICurrentUserContext>();
+        currentUser.GetRequiredAdministratorIdAsync().Returns("admin-1");
+        var jurisdictionRepository = Substitute.For<IAdministratorJurisdictionRepository>();
+        jurisdictionRepository.GetCountryForAdministratorAsync("admin-1").Returns(Country);
+        var jurisdictionService = new AdministratorJurisdictionService(
+            jurisdictionRepository,
+            currentUser);
+
+        _estadioRepository.BelongsToCountryAsync(Arg.Any<int>(), Country).Returns(true);
+        _eventoRepository.UpdateEventoAsync(
+                Arg.Any<int>(),
+                Country,
+                Arg.Any<DateTime>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<IEnumerable<(string Sector, decimal Precio)>>())
+            .Returns(true);
+
+        _service = new EventoService(
+            _eventoRepository,
+            _estadioRepository,
+            jurisdictionService,
+            () => Ahora);
     }
 
     [Theory]
@@ -29,7 +54,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 FechaEvento,
-                "admin-1",
                 idEstadio,
                 idLocal,
                 idVisitante,
@@ -48,7 +72,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 FechaEvento,
-                "admin-1",
                 1,
                 2,
                 3,
@@ -65,7 +88,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 FechaEvento,
-                "admin-1",
                 1,
                 2,
                 3,
@@ -82,7 +104,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 Ahora.AddDays(-1),
-                "admin-1",
                 1,
                 2,
                 3,
@@ -108,7 +129,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 Ahora.AddMinutes(-1),
-                "admin-1",
                 1,
                 2,
                 3,
@@ -136,7 +156,6 @@ public sealed class EventoServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
                 FechaEvento,
-                "admin-1",
                 1,
                 2,
                 3,
@@ -167,7 +186,6 @@ public sealed class EventoServiceTests
 
         var idEvento = await _service.ProgramarEventoAsync(
             FechaEvento,
-            "admin-1",
             1,
             2,
             3,
@@ -194,6 +212,7 @@ public sealed class EventoServiceTests
         await _eventoRepository.Received(1).ExisteSuperposicionAsync(1, FechaEvento, 9);
         await _eventoRepository.Received(1).UpdateEventoAsync(
             9,
+            Country,
             FechaEvento,
             1,
             2,
@@ -221,11 +240,35 @@ public sealed class EventoServiceTests
             Arg.Any<int?>());
         await _eventoRepository.DidNotReceive().UpdateEventoAsync(
             Arg.Any<int>(),
+            Arg.Any<string>(),
             Arg.Any<DateTime>(),
             Arg.Any<int>(),
             Arg.Any<int>(),
             Arg.Any<int>(),
             Arg.Any<IEnumerable<(string Sector, decimal Precio)>>());
+    }
+
+    [Fact]
+    public async Task ProgramarEvento_con_estadio_fuera_de_jurisdiccion_rechaza_la_operacion()
+    {
+        _estadioRepository.BelongsToCountryAsync(5, Country).Returns(false);
+
+        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.ProgramarEventoAsync(
+                FechaEvento,
+                5,
+                2,
+                3,
+                SectoresValidos));
+
+        Assert.Contains("no pertenece a su país sede", exception.Message);
+        await _eventoRepository.DidNotReceiveWithAnyArgs().CreateEventoAsync(
+            default,
+            default!,
+            default,
+            default,
+            default,
+            default!);
     }
 
     [Fact]
