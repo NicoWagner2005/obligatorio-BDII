@@ -50,9 +50,10 @@ FK(idUsuario) -> Usuario(idUsuario)
 -- fechaRegistro NOT NULL
 -- estadoIdentidad NOT NULL
 
-Venta(idVenta, idComprador, estado, tasaComision, montoTotal, fecha)
+Venta(idVenta, idComprador, estado, tasaComision, montoTotal, fecha, id_tasa)
 PK(idVenta)
 FK(idComprador) -> UsuarioGeneral(idUsuario)
+FK(id_tasa) -> tasa_comision(id_tasa)
 -- idComprador NOT NULL
 -- estado NOT NULL
 -- fecha NOT NULL
@@ -154,3 +155,7 @@ FuncionarioAsignadoASectorEnEvento(idFuncionario, idEvento, idEstadio, idSector)
 DispositivoEscaneo(idDispositivo, idFuncionario)
     PK(idDispositivo)
     FK(idFuncionario) -> Funcionario(idFuncionario)
+
+tasa_comision(id_tasa, tasa, fecha_desde)
+PK(id_tasa)
+
