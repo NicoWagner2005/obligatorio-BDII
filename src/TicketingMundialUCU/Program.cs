@@ -38,8 +38,11 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserPhoneRepository, UserPhoneRepository>();
+builder.Services.AddScoped<IAdministratorJurisdictionRepository, AdministratorJurisdictionRepository>();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<UserPhoneService>();
+builder.Services.AddScoped<AdministratorJurisdictionService>();
 builder.Services.AddScoped<IEstadioRepository, EstadioRepository>();
 builder.Services.AddScoped<IEventoRepository, EventoRepository>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
