@@ -223,6 +223,33 @@ public class VentaRepository(IConfiguration configuration) : IVentaRepository
         return rows.ToDictionary(r => r.IdSector, r => r.CapacidadMax - r.Vendidas);
     }
 
+    public async Task<IEnumerable<VentaResumen>> GetVentasByUsuarioAsync(string idUsuario)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryAsync<VentaResumen>(
+            """
+            SELECT
+                v.id_venta                  AS "IdVenta",
+                v.id_comprador              AS "IdComprador",
+                u."Email"                   AS "EmailUsuario",
+                v.fecha_venta               AS "FechaVenta",
+                v.estado                    AS "Estado",
+                v.monto_total               AS "MontoTotal",
+                v.tasa_comision_aplicada    AS "TasaComisionAplicada",
+                COUNT(en.id_entrada)::int   AS "CantidadEntradas"
+            FROM ventas v
+            JOIN "AspNetUsers" u ON v.id_comprador = u."Id"
+            LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+            LEFT JOIN entradas en
+                ON en.id_venta = dv.id_venta
+                AND en.nro_linea_detalle_venta = dv.nro_linea
+            WHERE v.id_comprador = @IdUsuario
+            GROUP BY v.id_venta, u."Email"
+            ORDER BY v.fecha_venta DESC
+            """,
+            new { IdUsuario = idUsuario });
+    }
+
     public async Task UpdateEstadoVentaAsync(int idVenta, string estado)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
