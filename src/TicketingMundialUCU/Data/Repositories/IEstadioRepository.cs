@@ -2,18 +2,17 @@ namespace TicketingMundialUCU.Data.Repositories;
 
 public interface IEstadioRepository
 {
-    Task<IEnumerable<PaisSede>> GetAllPaisesSedeAsync();
-    Task<IEnumerable<Estadio>> GetAllEstadiosAsync();
-    Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio);
-    Task CreatePaisSedeAsync(string nombre);
+    Task<IEnumerable<Estadio>> GetAllEstadiosAsync(string nombrePaisSede);
+    Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio, string nombrePaisSede);
+    Task<bool> BelongsToCountryAsync(int idEstadio, string nombrePaisSede);
     Task<int> CreateEstadioAsync(
         string nombre,
         string nombrePaisSede,
         Dictionary<string, int> sectores);
-    Task UpdateEstadioAsync(
+    Task<bool> UpdateEstadioAsync(
         int idEstadio,
         string nombre,
         string nombrePaisSede,
         Dictionary<string, int> sectores);
-    Task DeleteEstadioAsync(int idEstadio);
+    Task<bool> DeleteEstadioAsync(int idEstadio, string nombrePaisSede);
 }

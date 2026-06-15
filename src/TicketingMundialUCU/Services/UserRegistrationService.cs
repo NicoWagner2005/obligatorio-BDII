@@ -10,7 +10,8 @@ public sealed class UserRegistrationService(
     RoleManager<IdentityRole> roleManager,
     IUserStore<ApplicationUser> userStore,
     IUserRepository userRepository,
-    IUserPhoneRepository userPhoneRepository)
+    IUserPhoneRepository userPhoneRepository,
+    AdministratorJurisdictionService jurisdictionService)
 {
     public async Task<IdentityResult> RegisterUserAsync(UserRegistrationData registrationData)
     {
@@ -22,6 +23,14 @@ public sealed class UserRegistrationService(
                 Code = "InvalidRole",
                 Description = "El rol seleccionado no es válido."
             });
+        }
+
+        var countryResult = await jurisdictionService.ValidateRegistrationCountryAsync(
+            registrationData.Role,
+            registrationData.PaisSedeAsignado);
+        if (!countryResult.Succeeded)
+        {
+            return countryResult;
         }
 
         await userStore.SetUserNameAsync(user, registrationData.Email, CancellationToken.None);
@@ -46,7 +55,8 @@ public sealed class UserRegistrationService(
                 registrationData.Calle,
                 registrationData.NroDireccion,
                 registrationData.CodigoPostal,
-                registrationData.Role);
+                registrationData.Role,
+                registrationData.PaisSedeAsignado);
 
             if (!string.IsNullOrWhiteSpace(registrationData.Telefono))
             {
@@ -140,4 +150,5 @@ public sealed record UserRegistrationData(
     string NroDireccion,
     string CodigoPostal,
     string Telefono,
-    string Role);
+    string Role,
+    string? PaisSedeAsignado);

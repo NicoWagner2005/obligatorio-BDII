@@ -14,43 +14,52 @@ public class EstadioRepository(IConfiguration configuration) : IEstadioRepositor
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
 
-    public async Task<IEnumerable<PaisSede>> GetAllPaisesSedeAsync()
-    {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryAsync<PaisSede>(
-            """SELECT nombre AS "Nombre" FROM paises_sede ORDER BY nombre""");
-    }
-
-    public async Task<IEnumerable<Estadio>> GetAllEstadiosAsync()
+    public async Task<IEnumerable<Estadio>> GetAllEstadiosAsync(string nombrePaisSede)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<Estadio>(
             """
             SELECT id_estadio AS "IdEstadio", nombre AS "Nombre", nombre_pais_sede AS "NombrePaisSede"
             FROM estadios
+            WHERE nombre_pais_sede = @NombrePaisSede
             ORDER BY nombre
-            """);
+            """,
+            new { NombrePaisSede = nombrePaisSede });
     }
 
-    public async Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio)
+    public async Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(
+        int idEstadio,
+        string nombrePaisSede)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<Sector>(
             """
-            SELECT id_estadio AS "IdEstadio", id_sector AS "IdSector", capacidad_max AS "CapacidadMax"
-            FROM sectores
-            WHERE id_estadio = @IdEstadio
-            ORDER BY id_sector
+            SELECT
+                s.id_estadio AS "IdEstadio",
+                s.id_sector AS "IdSector",
+                s.capacidad_max AS "CapacidadMax"
+            FROM sectores s
+            JOIN estadios e ON e.id_estadio = s.id_estadio
+            WHERE s.id_estadio = @IdEstadio
+              AND e.nombre_pais_sede = @NombrePaisSede
+            ORDER BY s.id_sector
             """,
-            new { IdEstadio = idEstadio });
+            new { IdEstadio = idEstadio, NombrePaisSede = nombrePaisSede });
     }
 
-    public async Task CreatePaisSedeAsync(string nombre)
+    public async Task<bool> BelongsToCountryAsync(int idEstadio, string nombrePaisSede)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.ExecuteAsync(
-            """INSERT INTO paises_sede (nombre) VALUES (@Nombre)""",
-            new { Nombre = nombre });
+        return await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM estadios
+                WHERE id_estadio = @IdEstadio
+                  AND nombre_pais_sede = @NombrePaisSede
+            )
+            """,
+            new { IdEstadio = idEstadio, NombrePaisSede = nombrePaisSede });
     }
 
     public async Task<int> CreateEstadioAsync(
@@ -86,7 +95,7 @@ public class EstadioRepository(IConfiguration configuration) : IEstadioRepositor
         return idEstadio;
     }
 
-    public async Task UpdateEstadioAsync(
+    public async Task<bool> UpdateEstadioAsync(
         int idEstadio,
         string nombre,
         string nombrePaisSede,
@@ -96,14 +105,21 @@ public class EstadioRepository(IConfiguration configuration) : IEstadioRepositor
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        await connection.ExecuteAsync(
+        var updated = await connection.ExecuteAsync(
             """
             UPDATE estadios
-            SET nombre = @Nombre, nombre_pais_sede = @NombrePaisSede
+            SET nombre = @Nombre
             WHERE id_estadio = @IdEstadio
+              AND nombre_pais_sede = @NombrePaisSede
             """,
             new { IdEstadio = idEstadio, Nombre = nombre, NombrePaisSede = nombrePaisSede },
             transaction);
+
+        if (updated == 0)
+        {
+            await transaction.RollbackAsync();
+            return false;
+        }
 
         foreach (var (idSector, capacidadMax) in sectores)
         {
@@ -119,13 +135,19 @@ public class EstadioRepository(IConfiguration configuration) : IEstadioRepositor
         }
 
         await transaction.CommitAsync();
+        return true;
     }
 
-    public async Task DeleteEstadioAsync(int idEstadio)
+    public async Task<bool> DeleteEstadioAsync(int idEstadio, string nombrePaisSede)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.ExecuteAsync(
-            """DELETE FROM estadios WHERE id_estadio = @IdEstadio""",
-            new { IdEstadio = idEstadio });
+        var deleted = await connection.ExecuteAsync(
+            """
+            DELETE FROM estadios
+            WHERE id_estadio = @IdEstadio
+              AND nombre_pais_sede = @NombrePaisSede
+            """,
+            new { IdEstadio = idEstadio, NombrePaisSede = nombrePaisSede });
+        return deleted == 1;
     }
 }

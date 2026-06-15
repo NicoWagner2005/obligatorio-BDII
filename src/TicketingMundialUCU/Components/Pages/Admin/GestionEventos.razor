@@ -2,16 +2,14 @@
 @using Microsoft.AspNetCore.Authorization
 @using TicketingMundialUCU.Data.Repositories
 @using TicketingMundialUCU.Services
-@using System.Security.Claims
 @attribute [Authorize(Roles = "administrador")]
 @inject EventoService EventoService
-@inject AuthenticationStateProvider AuthProvider
 @rendermode InteractiveServer
 
 <PageTitle>Eventos · Admin</PageTitle>
 
 <div class="page-header">
-    <h1>Eventos Deportivos</h1>
+    <h1>Eventos Deportivos @(!string.IsNullOrWhiteSpace(_paisSede) ? $"· {_paisSede}" : "")</h1>
     <p class="page-subtitle">Programación y gestión de partidos</p>
 </div>
 
@@ -351,14 +349,13 @@
     private bool _guardando;
     private string? _errorMessage;
     private string? _successMessage;
-    private string? _adminId;
+    private string? _paisSede;
 
     private string FechaMinimaEventoInput => DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
 
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthProvider.GetAuthenticationStateAsync();
-        _adminId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        _paisSede = await EventoService.GetCurrentCountryAsync();
         await CargarDatosAsync();
     }
 
@@ -366,8 +363,8 @@
     {
         _equipos = (await EventoService.GetAllEquiposAsync()).ToList();
         _estadios = (await EventoService.GetAllEstadiosAsync()).ToList();
-        _eventos = (await EventoService.GetAllEventosDetalladosAsync()).ToList();
-        _sectoresPorEvento = await EventoService.GetAllSectoresHabilitadosAsync();
+        _eventos = (await EventoService.GetManagedEventosAsync()).ToList();
+        _sectoresPorEvento = await EventoService.GetManagedSectoresHabilitadosAsync();
     }
 
     private async Task CargarSectoresNuevoAsync()
@@ -430,7 +427,7 @@
         try
         {
             await EventoService.ProgramarEventoAsync(
-                _nuevoEvento.FechaHora, _adminId!, _nuevoEvento.IdEstadio,
+                _nuevoEvento.FechaHora, _nuevoEvento.IdEstadio,
                 _nuevoEvento.IdEquipoLocal, _nuevoEvento.IdEquipoVisitante,
                 _sectoresHabNuevo.Select(s => (s, _preciosNuevo.GetValueOrDefault(s, 0m))));
 

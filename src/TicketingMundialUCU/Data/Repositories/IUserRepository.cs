@@ -12,5 +12,6 @@ public interface IUserRepository
         string calle,
         string nroDireccion,
         string codigoPostal,
-        string role);
+        string role,
+        string? paisSedeAsignado);
 }

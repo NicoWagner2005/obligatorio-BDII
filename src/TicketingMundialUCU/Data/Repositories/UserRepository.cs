@@ -18,7 +18,8 @@ public class UserRepository(IConfiguration configuration) : IUserRepository
         string calle,
         string nroDireccion,
         string codigoPostal,
-        string role)
+        string role,
+        string? paisSedeAsignado)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -68,6 +69,16 @@ public class UserRepository(IConfiguration configuration) : IUserRepository
                     VALUES (@IdentityUserId, CURRENT_DATE);
                     """;
                 await connection.ExecuteAsync(administradorSql, new { IdentityUserId = identityUserId }, transaction);
+
+                const string jurisdictionSql = """
+                    INSERT INTO administrador_asignado_a_pais_sede
+                        (id_administrador, nombre_pais_sede)
+                    VALUES (@IdentityUserId, @PaisSedeAsignado);
+                    """;
+                await connection.ExecuteAsync(
+                    jurisdictionSql,
+                    new { IdentityUserId = identityUserId, PaisSedeAsignado = paisSedeAsignado },
+                    transaction);
                 break;
 
             default:

@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
 @using TicketingMundialUCU.Data
+@using TicketingMundialUCU.Data.Repositories
 @using TicketingMundialUCU.Services
 
 @inject UserManager<ApplicationUser> UserManager
@@ -15,6 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject UserRegistrationService UserRegistrationService
+@inject AdministratorJurisdictionService JurisdictionService
 
 <PageTitle>Crear cuenta</PageTitle>
 
@@ -43,12 +45,34 @@
                 </div>
                 <div class="col-md-4">
                     <label for="Input.Role" class="form-label">Rol</label>
-                    <InputSelect @bind-Value="Input.Role" id="Input.Role" class="form-select" aria-required="true">
-                        <option value="@UserRoles.General">Usuario general</option>
-                        <option value="@UserRoles.Funcionario">Funcionario</option>
-                        <option value="@UserRoles.Administrador">Administrador</option>
-                    </InputSelect>
+                    <select name="Input.Role"
+                            id="Input.Role"
+                            class="form-select"
+                            aria-required="true"
+                            onchange="toggleAdministratorCountry(this.value)">
+                        <option value="@UserRoles.General"
+                                selected="@(Input.Role == UserRoles.General)">Usuario general</option>
+                        <option value="@UserRoles.Funcionario"
+                                selected="@(Input.Role == UserRoles.Funcionario)">Funcionario</option>
+                        <option value="@UserRoles.Administrador"
+                                selected="@(Input.Role == UserRoles.Administrador)">Administrador</option>
+                    </select>
                     <ValidationMessage For="() => Input.Role" class="validation-message" />
+                </div>
+                <div id="administrator-country-field"
+                     class="col-md-4"
+                     style="display:@(Input.Role == UserRoles.Administrador ? "block" : "none")">
+                    <label for="Input.PaisSedeAsignado" class="form-label">País sede asignado</label>
+                    <InputSelect @bind-Value="Input.PaisSedeAsignado"
+                                 id="Input.PaisSedeAsignado"
+                                 class="form-select">
+                        <option value="">— Seleccionar país sede —</option>
+                        @foreach (var country in hostCountries)
+                        {
+                            <option value="@country.Nombre">@country.Nombre</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => Input.PaisSedeAsignado" class="validation-message" />
                 </div>
                 <div class="col-md-6">
                     <label for="Input.Password" class="form-label">Contraseña</label>
@@ -142,8 +166,18 @@
     </div>
 </div>
 
+<script>
+    function toggleAdministratorCountry(role) {
+        const field = document.getElementById("administrator-country-field");
+        if (field) {
+            field.style.display = role === "administrador" ? "block" : "none";
+        }
+    }
+</script>
+
 @code {
     private IEnumerable<IdentityError>? identityErrors;
+    private List<PaisSede> hostCountries = [];
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = new();
@@ -152,6 +186,11 @@
     private string? ReturnUrl { get; set; }
 
     private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        hostCountries = (await JurisdictionService.GetHostCountriesAsync()).ToList();
+    }
 
     public async Task RegisterUser(EditContext editContext)
     {
@@ -168,7 +207,8 @@
                 Input.NroDireccion,
                 Input.CodigoPostal,
                 Input.Telefono,
-                Input.Role));
+                Input.Role,
+                Input.PaisSedeAsignado));
 
         if (!result.Succeeded)
         {
@@ -253,6 +293,9 @@
         [Display(Name = "Rol")]
         public string Role { get; set; } = UserRoles.General;
 
+        [Display(Name = "País sede asignado")]
+        public string? PaisSedeAsignado { get; set; }
+
         [Required]
         [StringLength(100, ErrorMessage = "La contraseña debe tener al menos {2} caracteres.", MinimumLength = 6)]
         [DataType(DataType.Password)]
@@ -268,6 +311,13 @@
         {
             if (!UserRoles.IsValid(Role))
                 yield return new ValidationResult("El rol seleccionado no es válido.", [nameof(Role)]);
+
+            if (Role == UserRoles.Administrador && string.IsNullOrWhiteSpace(PaisSedeAsignado))
+            {
+                yield return new ValidationResult(
+                    "Debe seleccionar un país sede para el administrador.",
+                    [nameof(PaisSedeAsignado)]);
+            }
         }
     }
 }

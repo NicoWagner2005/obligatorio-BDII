@@ -38,25 +38,21 @@ public class EventoRepository(IConfiguration configuration) : IEventoRepository
     public async Task<IEnumerable<EventoDetalle>> GetAllEventosDetalladosAsync()
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryAsync<EventoDetalle>(
-            """
-            SELECT
-                e.id_evento          AS "IdEvento",
-                e.fecha_hora         AS "FechaHora",
-                e.id_estadio         AS "IdEstadio",
-                est.nombre           AS "NombreEstadio",
-                eq_l.nombre          AS "EquipoLocal",
-                eq_v.nombre          AS "EquipoVisitante"
-            FROM eventos e
-            JOIN estadios est ON e.id_estadio = est.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+        return await connection.QueryAsync<EventoDetalle>(EventoDetailSql + "\n" + """
             ORDER BY e.fecha_hora DESC
             """);
+    }
+
+    public async Task<IEnumerable<EventoDetalle>> GetEventosDetalladosByCountryAsync(
+        string nombrePaisSede)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryAsync<EventoDetalle>(
+            EventoDetailSql + "\n" + """
+            WHERE est.nombre_pais_sede = @NombrePaisSede
+            ORDER BY e.fecha_hora DESC
+            """,
+            new { NombrePaisSede = nombrePaisSede });
     }
 
     public async Task<Dictionary<int, List<SectorHabilitado>>> GetAllSectoresHabilitadosAsync()
@@ -68,9 +64,23 @@ public class EventoRepository(IConfiguration configuration) : IEventoRepository
             FROM evento_habilita_sector
             ORDER BY id_evento, id_sector
             """);
-        return rows
-            .GroupBy(r => r.IdEvento)
-            .ToDictionary(g => g.Key, g => g.Select(r => new SectorHabilitado(r.IdSector, r.Precio)).ToList());
+        return GroupEnabledSectors(rows);
+    }
+
+    public async Task<Dictionary<int, List<SectorHabilitado>>> GetSectoresHabilitadosByCountryAsync(
+        string nombrePaisSede)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.QueryAsync<(int IdEvento, string IdSector, decimal Precio)>(
+            """
+            SELECT ehs.id_evento AS "IdEvento", ehs.id_sector AS "IdSector", ehs.precio AS "Precio"
+            FROM evento_habilita_sector ehs
+            JOIN estadios e ON e.id_estadio = ehs.id_estadio
+            WHERE e.nombre_pais_sede = @NombrePaisSede
+            ORDER BY ehs.id_evento, ehs.id_sector
+            """,
+            new { NombrePaisSede = nombrePaisSede });
+        return GroupEnabledSectors(rows);
     }
 
     // RF-31: verifica que no haya otro evento en el mismo estadio dentro de una
@@ -152,8 +162,9 @@ public class EventoRepository(IConfiguration configuration) : IEventoRepository
         return idEvento;
     }
 
-    public async Task UpdateEventoAsync(
+    public async Task<bool> UpdateEventoAsync(
         int idEvento,
+        string nombrePaisSede,
         DateTime fechaHora,
         int idEstadio,
         int idEquipoLocal,
@@ -164,19 +175,38 @@ public class EventoRepository(IConfiguration configuration) : IEventoRepository
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        await connection.ExecuteAsync(
+        var updated = await connection.ExecuteAsync(
             """
             UPDATE eventos
             SET fecha_hora = @FechaHora, id_estadio = @IdEstadio
             WHERE id_evento = @IdEvento
+              AND EXISTS (
+                  SELECT 1
+                  FROM estadios actual
+                  WHERE actual.id_estadio = eventos.id_estadio
+                    AND actual.nombre_pais_sede = @NombrePaisSede
+              )
+              AND EXISTS (
+                  SELECT 1
+                  FROM estadios nuevo
+                  WHERE nuevo.id_estadio = @IdEstadio
+                    AND nuevo.nombre_pais_sede = @NombrePaisSede
+              )
             """,
             new
             {
                 IdEvento = idEvento,
+                NombrePaisSede = nombrePaisSede,
                 FechaHora = DateTime.SpecifyKind(fechaHora, DateTimeKind.Unspecified),
                 IdEstadio = idEstadio
             },
             transaction);
+
+        if (updated == 0)
+        {
+            await transaction.RollbackAsync();
+            return false;
+        }
 
         await connection.ExecuteAsync(
             """DELETE FROM equipo_juega_evento WHERE id_evento = @IdEvento""",
@@ -210,13 +240,51 @@ public class EventoRepository(IConfiguration configuration) : IEventoRepository
         }
 
         await transaction.CommitAsync();
+        return true;
     }
 
-    public async Task DeleteEventoAsync(int idEvento)
+    public async Task<bool> DeleteEventoAsync(int idEvento, string nombrePaisSede)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.ExecuteAsync(
-            """DELETE FROM eventos WHERE id_evento = @IdEvento""",
-            new { IdEvento = idEvento });
+        var deleted = await connection.ExecuteAsync(
+            """
+            DELETE FROM eventos
+            WHERE id_evento = @IdEvento
+              AND EXISTS (
+                  SELECT 1
+                  FROM estadios
+                  WHERE estadios.id_estadio = eventos.id_estadio
+                    AND estadios.nombre_pais_sede = @NombrePaisSede
+              )
+            """,
+            new { IdEvento = idEvento, NombrePaisSede = nombrePaisSede });
+        return deleted == 1;
     }
+
+    private const string EventoDetailSql = """
+        SELECT
+            e.id_evento          AS "IdEvento",
+            e.fecha_hora         AS "FechaHora",
+            e.id_estadio         AS "IdEstadio",
+            est.nombre           AS "NombreEstadio",
+            eq_l.nombre          AS "EquipoLocal",
+            eq_v.nombre          AS "EquipoVisitante"
+        FROM eventos e
+        JOIN estadios est ON e.id_estadio = est.id_estadio
+        LEFT JOIN equipo_juega_evento eje_l
+            ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
+        LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
+        LEFT JOIN equipo_juega_evento eje_v
+            ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
+        LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+        """;
+
+    private static Dictionary<int, List<SectorHabilitado>> GroupEnabledSectors(
+        IEnumerable<(int IdEvento, string IdSector, decimal Precio)> rows) =>
+        rows.GroupBy(row => row.IdEvento)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .Select(row => new SectorHabilitado(row.IdSector, row.Precio))
+                    .ToList());
 }

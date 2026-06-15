@@ -5,25 +5,51 @@ namespace TicketingMundialUCU.Services;
 public class EventoService(
     IEventoRepository eventoRepository,
     IEstadioRepository estadioRepository,
+    AdministratorJurisdictionService jurisdictionService,
     Func<DateTime>? nowProvider = null)
 {
-    public Task<IEnumerable<Equipo>> GetAllEquiposAsync() =>
-        eventoRepository.GetAllEquiposAsync();
+    public Task<string> GetCurrentCountryAsync() =>
+        jurisdictionService.GetCurrentCountryAsync();
 
-    public Task<IEnumerable<Estadio>> GetAllEstadiosAsync() =>
-        estadioRepository.GetAllEstadiosAsync();
+    public async Task<IEnumerable<Equipo>> GetAllEquiposAsync()
+    {
+        await jurisdictionService.GetCurrentCountryAsync();
+        return await eventoRepository.GetAllEquiposAsync();
+    }
 
-    public Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio) =>
-        estadioRepository.GetSectoresByEstadioAsync(idEstadio);
+    public async Task<IEnumerable<Estadio>> GetAllEstadiosAsync()
+    {
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        return await estadioRepository.GetAllEstadiosAsync(country);
+    }
+
+    public async Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio)
+    {
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        return await estadioRepository.GetSectoresByEstadioAsync(idEstadio, country);
+    }
 
     public Task<IEnumerable<EventoDetalle>> GetAllEventosDetalladosAsync() =>
         eventoRepository.GetAllEventosDetalladosAsync();
 
+    public async Task<IEnumerable<EventoDetalle>> GetManagedEventosAsync()
+    {
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        return await eventoRepository.GetEventosDetalladosByCountryAsync(country);
+    }
+
     public Task<Dictionary<int, List<SectorHabilitado>>> GetAllSectoresHabilitadosAsync() =>
         eventoRepository.GetAllSectoresHabilitadosAsync();
 
+    public async Task<Dictionary<int, List<SectorHabilitado>>> GetManagedSectoresHabilitadosAsync()
+    {
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        return await eventoRepository.GetSectoresHabilitadosByCountryAsync(country);
+    }
+
     public async Task AgregarEquipoAsync(string nombre)
     {
+        await jurisdictionService.GetCurrentCountryAsync();
         try
         {
             await eventoRepository.CreateEquipoAsync(nombre);
@@ -36,7 +62,6 @@ public class EventoService(
 
     public async Task<int> ProgramarEventoAsync(
         DateTime fechaHora,
-        string idAdministrador,
         int idEstadio,
         int idEquipoLocal,
         int idEquipoVisitante,
@@ -44,13 +69,15 @@ public class EventoService(
     {
         var sectores = sectoresConPrecio.ToList();
         ValidarEvento(fechaHora, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+        var scope = await jurisdictionService.GetCurrentScopeAsync();
+        await EnsureStadiumJurisdictionAsync(idEstadio, scope.CountryName);
 
         if (await eventoRepository.ExisteSuperposicionAsync(idEstadio, fechaHora))
             throw new InvalidOperationException(
                 "Ya existe un evento en ese estadio dentro de las 3 horas de la fecha indicada.");
 
         return await eventoRepository.CreateEventoAsync(
-            fechaHora, idAdministrador, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+            fechaHora, scope.AdministratorId, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
     }
 
     public async Task ActualizarEventoAsync(
@@ -63,17 +90,40 @@ public class EventoService(
     {
         var sectores = sectoresConPrecio.ToList();
         ValidarEvento(fechaHora, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        await EnsureStadiumJurisdictionAsync(idEstadio, country);
 
         if (await eventoRepository.ExisteSuperposicionAsync(idEstadio, fechaHora, idEvento))
             throw new InvalidOperationException(
                 "Ya existe un evento en ese estadio dentro de las 3 horas de la fecha indicada.");
 
-        await eventoRepository.UpdateEventoAsync(
-            idEvento, fechaHora, idEstadio, idEquipoLocal, idEquipoVisitante, sectores);
+        if (!await eventoRepository.UpdateEventoAsync(
+                idEvento, country, fechaHora, idEstadio,
+                idEquipoLocal, idEquipoVisitante, sectores))
+        {
+            throw new UnauthorizedAccessException(
+                "No puede modificar un evento fuera de su país sede.");
+        }
     }
 
-    public Task EliminarEventoAsync(int idEvento) =>
-        eventoRepository.DeleteEventoAsync(idEvento);
+    public async Task EliminarEventoAsync(int idEvento)
+    {
+        var country = await jurisdictionService.GetCurrentCountryAsync();
+        if (!await eventoRepository.DeleteEventoAsync(idEvento, country))
+        {
+            throw new UnauthorizedAccessException(
+                "No puede eliminar un evento fuera de su país sede.");
+        }
+    }
+
+    private async Task EnsureStadiumJurisdictionAsync(int idEstadio, string country)
+    {
+        if (!await estadioRepository.BelongsToCountryAsync(idEstadio, country))
+        {
+            throw new UnauthorizedAccessException(
+                "El estadio seleccionado no pertenece a su país sede.");
+        }
+    }
 
     private void ValidarEvento(
         DateTime fechaHora,
