@@ -34,28 +34,6 @@ else if (!_entradas.Any())
 }
 else
 {
-    <!-- Stats -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-blue">🎫</div>
-                <div class="stat-body">
-                    <div class="stat-value">@_entradas.Count</div>
-                    <div class="stat-label">Entradas disponibles</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-green">✅</div>
-                <div class="stat-body">
-                    <div class="stat-value">@_entradas.Count(e => e.EstadoVenta == "paga")</div>
-                    <div class="stat-label">Entradas pagas</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Entradas disponibles como tickets individuales -->
     @foreach (var entrada in _entradas)
     {
