@@ -1,5 +1,5 @@
 using NSubstitute;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 using TicketingMundialUCU.Services;
 
 namespace TicketingMundialUCU.Tests.Services;
@@ -8,22 +8,22 @@ public sealed class EventoServiceTests
 {
     private const string Country = "México";
 
-    private readonly IEventoRepository _eventoRepository = Substitute.For<IEventoRepository>();
-    private readonly IEstadioRepository _estadioRepository = Substitute.For<IEstadioRepository>();
+    private readonly IEventoDao _eventoDao = Substitute.For<IEventoDao>();
+    private readonly IEstadioDao _estadioDao = Substitute.For<IEstadioDao>();
     private readonly EventoService _service;
 
     public EventoServiceTests()
     {
         var currentUser = Substitute.For<ICurrentUserContext>();
         currentUser.GetRequiredAdministratorIdAsync().Returns("admin-1");
-        var jurisdictionRepository = Substitute.For<IAdministratorJurisdictionRepository>();
-        jurisdictionRepository.GetCountryForAdministratorAsync("admin-1").Returns(Country);
+        var jurisdictionDao = Substitute.For<IAdministratorJurisdictionDao>();
+        jurisdictionDao.GetCountryForAdministratorAsync("admin-1").Returns(Country);
         var jurisdictionService = new AdministratorJurisdictionService(
-            jurisdictionRepository,
+            jurisdictionDao,
             currentUser);
 
-        _estadioRepository.BelongsToCountryAsync(Arg.Any<int>(), Country).Returns(true);
-        _eventoRepository.UpdateEventoAsync(
+        _estadioDao.BelongsToCountryAsync(Arg.Any<int>(), Country).Returns(true);
+        _eventoDao.UpdateEventoAsync(
                 Arg.Any<int>(),
                 Country,
                 Arg.Any<DateTime>(),
@@ -34,8 +34,8 @@ public sealed class EventoServiceTests
             .Returns(true);
 
         _service = new EventoService(
-            _eventoRepository,
-            _estadioRepository,
+            _eventoDao,
+            _estadioDao,
             jurisdictionService,
             () => Ahora);
     }
@@ -60,7 +60,7 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Equal(mensajeEsperado, exception.Message);
-        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+        await _eventoDao.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
             Arg.Any<int?>());
@@ -110,11 +110,11 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
-        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+        await _eventoDao.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
             Arg.Any<int?>());
-        await _eventoRepository.DidNotReceive().CreateEventoAsync(
+        await _eventoDao.DidNotReceive().CreateEventoAsync(
             Arg.Any<DateTime>(),
             Arg.Any<string>(),
             Arg.Any<int>(),
@@ -135,11 +135,11 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
-        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+        await _eventoDao.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
             Arg.Any<int?>());
-        await _eventoRepository.DidNotReceive().CreateEventoAsync(
+        await _eventoDao.DidNotReceive().CreateEventoAsync(
             Arg.Any<DateTime>(),
             Arg.Any<string>(),
             Arg.Any<int>(),
@@ -151,7 +151,7 @@ public sealed class EventoServiceTests
     [Fact]
     public async Task ProgramarEvento_superpuesto_rechaza_la_operacion()
     {
-        _eventoRepository.ExisteSuperposicionAsync(1, FechaEvento, null).Returns(true);
+        _eventoDao.ExisteSuperposicionAsync(1, FechaEvento, null).Returns(true);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ProgramarEventoAsync(
@@ -162,7 +162,7 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Contains("Ya existe un evento", exception.Message);
-        await _eventoRepository.DidNotReceive().CreateEventoAsync(
+        await _eventoDao.DidNotReceive().CreateEventoAsync(
             Arg.Any<DateTime>(),
             Arg.Any<string>(),
             Arg.Any<int>(),
@@ -174,8 +174,8 @@ public sealed class EventoServiceTests
     [Fact]
     public async Task ProgramarEvento_valido_devuelve_el_identificador_creado()
     {
-        _eventoRepository.ExisteSuperposicionAsync(1, FechaEvento, null).Returns(false);
-        _eventoRepository.CreateEventoAsync(
+        _eventoDao.ExisteSuperposicionAsync(1, FechaEvento, null).Returns(false);
+        _eventoDao.CreateEventoAsync(
                 FechaEvento,
                 "admin-1",
                 1,
@@ -192,7 +192,7 @@ public sealed class EventoServiceTests
             SectoresValidos);
 
         Assert.Equal(25, idEvento);
-        await _eventoRepository.Received(1).CreateEventoAsync(
+        await _eventoDao.Received(1).CreateEventoAsync(
             FechaEvento,
             "admin-1",
             1,
@@ -205,12 +205,12 @@ public sealed class EventoServiceTests
     [Fact]
     public async Task ActualizarEvento_excluye_el_evento_actual_al_buscar_superposicion()
     {
-        _eventoRepository.ExisteSuperposicionAsync(1, FechaEvento, 9).Returns(false);
+        _eventoDao.ExisteSuperposicionAsync(1, FechaEvento, 9).Returns(false);
 
         await _service.ActualizarEventoAsync(9, FechaEvento, 1, 2, 3, SectoresValidos);
 
-        await _eventoRepository.Received(1).ExisteSuperposicionAsync(1, FechaEvento, 9);
-        await _eventoRepository.Received(1).UpdateEventoAsync(
+        await _eventoDao.Received(1).ExisteSuperposicionAsync(1, FechaEvento, 9);
+        await _eventoDao.Received(1).UpdateEventoAsync(
             9,
             Country,
             FechaEvento,
@@ -234,11 +234,11 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Equal("La fecha y hora del evento no puede ser anterior al momento actual.", exception.Message);
-        await _eventoRepository.DidNotReceive().ExisteSuperposicionAsync(
+        await _eventoDao.DidNotReceive().ExisteSuperposicionAsync(
             Arg.Any<int>(),
             Arg.Any<DateTime>(),
             Arg.Any<int?>());
-        await _eventoRepository.DidNotReceive().UpdateEventoAsync(
+        await _eventoDao.DidNotReceive().UpdateEventoAsync(
             Arg.Any<int>(),
             Arg.Any<string>(),
             Arg.Any<DateTime>(),
@@ -251,7 +251,7 @@ public sealed class EventoServiceTests
     [Fact]
     public async Task ProgramarEvento_con_estadio_fuera_de_jurisdiccion_rechaza_la_operacion()
     {
-        _estadioRepository.BelongsToCountryAsync(5, Country).Returns(false);
+        _estadioDao.BelongsToCountryAsync(5, Country).Returns(false);
 
         var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             _service.ProgramarEventoAsync(
@@ -262,7 +262,7 @@ public sealed class EventoServiceTests
                 SectoresValidos));
 
         Assert.Contains("no pertenece a su país sede", exception.Message);
-        await _eventoRepository.DidNotReceiveWithAnyArgs().CreateEventoAsync(
+        await _eventoDao.DidNotReceiveWithAnyArgs().CreateEventoAsync(
             default,
             default!,
             default,
@@ -274,7 +274,7 @@ public sealed class EventoServiceTests
     [Fact]
     public async Task AgregarEquipo_duplicado_devuelve_un_mensaje_claro()
     {
-        _eventoRepository.CreateEquipoAsync("Uruguay")
+        _eventoDao.CreateEquipoAsync("Uruguay")
             .Returns(Task.FromException(new Exception("unique constraint")));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>

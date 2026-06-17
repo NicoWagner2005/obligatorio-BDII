@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using NSubstitute;
 using TicketingMundialUCU.Data;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 using TicketingMundialUCU.Services;
 
 namespace TicketingMundialUCU.Tests.Services;
@@ -22,7 +22,7 @@ public sealed class UserRegistrationServiceTests
         Assert.False(result.Succeeded);
         Assert.Contains(result.Errors, error => error.Code == "InvalidRole");
         Assert.Null(await context.UserManager.FindByEmailAsync(data.Email));
-        await context.UserRepository.DidNotReceiveWithAnyArgs().CreateAsync(
+        await context.UserDao.DidNotReceiveWithAnyArgs().CreateAsync(
             default!,
             default!,
             default!,
@@ -45,7 +45,7 @@ public sealed class UserRegistrationServiceTests
         var result = await context.Service.RegisterUserAsync(data);
 
         Assert.False(result.Succeeded);
-        await context.UserRepository.DidNotReceiveWithAnyArgs().CreateAsync(
+        await context.UserDao.DidNotReceiveWithAnyArgs().CreateAsync(
             default!,
             default!,
             default!,
@@ -74,7 +74,7 @@ public sealed class UserRegistrationServiceTests
         var user = await context.UserManager.FindByEmailAsync(data.Email);
         Assert.NotNull(user);
         Assert.True(await context.UserManager.IsInRoleAsync(user, role));
-        await context.UserRepository.Received(1).CreateAsync(
+        await context.UserDao.Received(1).CreateAsync(
             user.Id,
             data.NroDocumento,
             data.TipoDocumento,
@@ -86,7 +86,7 @@ public sealed class UserRegistrationServiceTests
             data.CodigoPostal,
             role,
             data.PaisSedeAsignado);
-        await context.UserPhoneRepository.Received(1).AddAsync(user.Id, data.Telefono);
+        await context.UserPhoneDao.Received(1).AddAsync(user.Id, data.Telefono);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class UserRegistrationServiceTests
         var result = await context.Service.RegisterUserAsync(data);
 
         Assert.True(result.Succeeded);
-        await context.UserPhoneRepository.DidNotReceive().AddAsync(
+        await context.UserPhoneDao.DidNotReceive().AddAsync(
             Arg.Any<string>(),
             Arg.Any<string>());
     }
@@ -144,7 +144,7 @@ public sealed class UserRegistrationServiceTests
     {
         await using var context = CrearContexto();
         var data = CrearDatos();
-        context.UserRepository
+        context.UserDao
             .CreateAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -237,26 +237,26 @@ public sealed class UserRegistrationServiceTests
             var roleManager = _scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userStore = _scope.ServiceProvider.GetRequiredService<IUserStore<ApplicationUser>>();
 
-            UserRepository = Substitute.For<IUserRepository>();
-            UserPhoneRepository = Substitute.For<IUserPhoneRepository>();
+            UserDao = Substitute.For<IUserDao>();
+            UserPhoneDao = Substitute.For<IUserPhoneDao>();
             var currentUser = Substitute.For<ICurrentUserContext>();
-            var jurisdictionRepository = Substitute.For<IAdministratorJurisdictionRepository>();
-            jurisdictionRepository.CountryExistsAsync("México").Returns(true);
+            var jurisdictionDao = Substitute.For<IAdministratorJurisdictionDao>();
+            jurisdictionDao.CountryExistsAsync("México").Returns(true);
             var jurisdictionService = new AdministratorJurisdictionService(
-                jurisdictionRepository,
+                jurisdictionDao,
                 currentUser);
             Service = new UserRegistrationService(
                 UserManager,
                 roleManager,
                 userStore,
-                UserRepository,
-                UserPhoneRepository,
+                UserDao,
+                UserPhoneDao,
                 jurisdictionService);
         }
 
         public UserManager<ApplicationUser> UserManager { get; }
-        public IUserRepository UserRepository { get; }
-        public IUserPhoneRepository UserPhoneRepository { get; }
+        public IUserDao UserDao { get; }
+        public IUserPhoneDao UserPhoneDao { get; }
         public UserRegistrationService Service { get; }
 
         public async ValueTask DisposeAsync()
