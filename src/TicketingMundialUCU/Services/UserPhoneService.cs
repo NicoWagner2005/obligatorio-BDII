@@ -1,14 +1,14 @@
 using System.ComponentModel.DataAnnotations;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 
 namespace TicketingMundialUCU.Services;
 
-public sealed class UserPhoneService(IUserPhoneRepository repository)
+public sealed class UserPhoneService(IUserPhoneDao dao)
 {
     private const int MaxPhoneNumberLength = 20;
 
     public Task<IEnumerable<string>> GetPhoneNumbersAsync(string userId) =>
-        repository.GetByUserIdAsync(userId);
+        dao.GetByUserIdAsync(userId);
 
     public async Task UpdatePhoneNumbersAsync(
         string userId,
@@ -24,7 +24,7 @@ public sealed class UserPhoneService(IUserPhoneRepository repository)
 
         Validate(normalizedPhoneNumbers);
 
-        await repository.ReplaceAllAsync(userId, normalizedPhoneNumbers);
+        await dao.ReplaceAllAsync(userId, normalizedPhoneNumbers);
     }
 
     private static void Validate(IEnumerable<string> phoneNumbers)

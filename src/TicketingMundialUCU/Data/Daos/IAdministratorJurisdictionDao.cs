@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IAdministratorJurisdictionRepository
+public interface IAdministratorJurisdictionDao
 {
     Task<IEnumerable<PaisSede>> GetHostCountriesAsync();
     Task<bool> CountryExistsAsync(string countryName);

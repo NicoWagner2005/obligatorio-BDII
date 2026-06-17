@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IEntradaRepository
+public interface IEntradaDao
 {
     Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario);
     Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta);

@@ -2,10 +2,10 @@ using Dapper;
 using Npgsql;
 using TicketingMundialUCU.Services;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public sealed class AdministratorJurisdictionRepository(IConfiguration configuration)
-    : IAdministratorJurisdictionRepository
+public sealed class AdministratorJurisdictionDao(IConfiguration configuration)
+    : IAdministratorJurisdictionDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

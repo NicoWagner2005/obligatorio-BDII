@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
 public record Equipo(int IdEquipo, string Nombre);
 
@@ -15,7 +15,7 @@ public record EventoDetalle(
     string? EquipoLocal,
     string? EquipoVisitante);
 
-public class EventoRepository(IConfiguration configuration) : IEventoRepository
+public class EventoDao(IConfiguration configuration) : IEventoDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

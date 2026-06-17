@@ -1,6 +1,6 @@
 @page "/admin/ventas"
 @using Microsoft.AspNetCore.Authorization
-@using TicketingMundialUCU.Data.Repositories
+@using TicketingMundialUCU.Data.Daos
 @using TicketingMundialUCU.Services
 @attribute [Authorize(Roles = "administrador")]
 @inject VentaService VentaService

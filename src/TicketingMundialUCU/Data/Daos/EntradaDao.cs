@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
 public record EntradaDetalle(
     Guid IdEntrada,
@@ -16,7 +16,7 @@ public record EntradaDetalle(
     decimal PrecioUnitario,
     string EstadoVenta);
 
-public class EntradaRepository(IConfiguration configuration) : IEntradaRepository
+public class EntradaDao(IConfiguration configuration) : IEntradaDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TicketingMundialUCU.Components;
 using TicketingMundialUCU.Components.Account;
 using TicketingMundialUCU.Data;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 using TicketingMundialUCU.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,17 +36,17 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserPhoneRepository, UserPhoneRepository>();
-builder.Services.AddScoped<IAdministratorJurisdictionRepository, AdministratorJurisdictionRepository>();
+builder.Services.AddScoped<IUserDao, UserDao>();
+builder.Services.AddScoped<IUserPhoneDao, UserPhoneDao>();
+builder.Services.AddScoped<IAdministratorJurisdictionDao, AdministratorJurisdictionDao>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<UserPhoneService>();
 builder.Services.AddScoped<AdministratorJurisdictionService>();
-builder.Services.AddScoped<IEstadioRepository, EstadioRepository>();
-builder.Services.AddScoped<IEventoRepository, EventoRepository>();
-builder.Services.AddScoped<IVentaRepository, VentaRepository>();
-builder.Services.AddScoped<IEntradaRepository, EntradaRepository>();
+builder.Services.AddScoped<IEstadioDao, EstadioDao>();
+builder.Services.AddScoped<IEventoDao, EventoDao>();
+builder.Services.AddScoped<IVentaDao, VentaDao>();
+builder.Services.AddScoped<IEntradaDao, EntradaDao>();
 builder.Services.AddScoped<EstadioService>();
 builder.Services.AddScoped<EventoService>();
 builder.Services.AddScoped<VentaService>();

@@ -1,9 +1,9 @@
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 
 namespace TicketingMundialUCU.Services;
 
 public class EstadioService(
-    IEstadioRepository repository,
+    IEstadioDao dao,
     AdministratorJurisdictionService jurisdictionService)
 {
     public Task<string> GetCurrentCountryAsync() =>
@@ -12,13 +12,13 @@ public class EstadioService(
     public async Task<IEnumerable<Estadio>> GetAllEstadiosAsync()
     {
         var country = await jurisdictionService.GetCurrentCountryAsync();
-        return await repository.GetAllEstadiosAsync(country);
+        return await dao.GetAllEstadiosAsync(country);
     }
 
     public async Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio)
     {
         var country = await jurisdictionService.GetCurrentCountryAsync();
-        return await repository.GetSectoresByEstadioAsync(idEstadio, country);
+        return await dao.GetSectoresByEstadioAsync(idEstadio, country);
     }
 
     public async Task RegistrarEstadioAsync(
@@ -29,7 +29,7 @@ public class EstadioService(
             throw new InvalidOperationException("La capacidad de cada sector debe ser mayor a 0.");
 
         var country = await jurisdictionService.GetCurrentCountryAsync();
-        await repository.CreateEstadioAsync(nombre, country, sectores);
+        await dao.CreateEstadioAsync(nombre, country, sectores);
     }
 
     public async Task ActualizarEstadioAsync(
@@ -41,7 +41,7 @@ public class EstadioService(
             throw new InvalidOperationException("La capacidad de cada sector debe ser mayor a 0.");
 
         var country = await jurisdictionService.GetCurrentCountryAsync();
-        if (!await repository.UpdateEstadioAsync(idEstadio, nombre, country, sectores))
+        if (!await dao.UpdateEstadioAsync(idEstadio, nombre, country, sectores))
         {
             throw new UnauthorizedAccessException(
                 "No puede modificar un estadio fuera de su país sede.");
@@ -51,7 +51,7 @@ public class EstadioService(
     public async Task EliminarEstadioAsync(int idEstadio)
     {
         var country = await jurisdictionService.GetCurrentCountryAsync();
-        if (!await repository.DeleteEstadioAsync(idEstadio, country))
+        if (!await dao.DeleteEstadioAsync(idEstadio, country))
         {
             throw new UnauthorizedAccessException(
                 "No puede eliminar un estadio fuera de su país sede.");

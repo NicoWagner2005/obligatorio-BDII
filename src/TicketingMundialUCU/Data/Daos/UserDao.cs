@@ -1,9 +1,9 @@
 using Dapper;
 using Npgsql;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public class UserRepository(IConfiguration configuration) : IUserRepository
+public class UserDao(IConfiguration configuration) : IUserDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

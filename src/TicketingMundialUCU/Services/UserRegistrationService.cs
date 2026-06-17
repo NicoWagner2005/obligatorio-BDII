@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Npgsql;
 using TicketingMundialUCU.Data;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 
 namespace TicketingMundialUCU.Services;
 
@@ -9,8 +9,8 @@ public sealed class UserRegistrationService(
     UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole> roleManager,
     IUserStore<ApplicationUser> userStore,
-    IUserRepository userRepository,
-    IUserPhoneRepository userPhoneRepository,
+    IUserDao userDao,
+    IUserPhoneDao userPhoneDao,
     AdministratorJurisdictionService jurisdictionService)
 {
     public async Task<IdentityResult> RegisterUserAsync(UserRegistrationData registrationData)
@@ -45,7 +45,7 @@ public sealed class UserRegistrationService(
 
         try
         {
-            await userRepository.CreateAsync(
+            await userDao.CreateAsync(
                 user.Id,
                 registrationData.NroDocumento,
                 registrationData.TipoDocumento,
@@ -60,7 +60,7 @@ public sealed class UserRegistrationService(
 
             if (!string.IsNullOrWhiteSpace(registrationData.Telefono))
             {
-                await userPhoneRepository.AddAsync(user.Id, registrationData.Telefono);
+                await userPhoneDao.AddAsync(user.Id, registrationData.Telefono);
             }
 
             var roleResult = await EnsureRoleAsync(registrationData.Role);

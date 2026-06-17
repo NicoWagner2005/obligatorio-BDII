@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IUserPhoneRepository
+public interface IUserPhoneDao
 {
     Task AddAsync(string userId, string telefono);
     Task ReplaceAsync(string userId, string? telefono);

@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IVentaRepository
+public interface IVentaDao
 {
     Task<TasaComision> GetTasaVigenteAsync();
     Task<int> CreateVentaAsync(

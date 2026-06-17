@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
 public record PaisSede(string Nombre);
 
@@ -9,7 +9,7 @@ public record Estadio(int IdEstadio, string Nombre, string NombrePaisSede);
 
 public record Sector(int IdEstadio, string IdSector, int CapacidadMax);
 
-public class EstadioRepository(IConfiguration configuration) : IEstadioRepository
+public class EstadioDao(IConfiguration configuration) : IEstadioDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

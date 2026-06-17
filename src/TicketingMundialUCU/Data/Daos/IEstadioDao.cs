@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IEstadioRepository
+public interface IEstadioDao
 {
     Task<IEnumerable<Estadio>> GetAllEstadiosAsync(string nombrePaisSede);
     Task<IEnumerable<Sector>> GetSectoresByEstadioAsync(int idEstadio, string nombrePaisSede);

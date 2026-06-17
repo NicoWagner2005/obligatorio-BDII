@@ -1,26 +1,26 @@
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 
 namespace TicketingMundialUCU.Services;
 
-public class VentaService(IVentaRepository repository, IEntradaRepository entradaRepository)
+public class VentaService(IVentaDao dao, IEntradaDao entradaDao)
 {
     public Task<TasaComision> GetTasaVigenteAsync() =>
-        repository.GetTasaVigenteAsync();
+        dao.GetTasaVigenteAsync();
 
     public Task<Dictionary<string, int>> GetDisponibilidadAsync(int idEvento, int idEstadio) =>
-        repository.GetDisponibilidadAsync(idEvento, idEstadio);
+        dao.GetDisponibilidadAsync(idEvento, idEstadio);
 
     public Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario) =>
-        entradaRepository.GetEntradasByUsuarioAsync(idUsuario);
+        entradaDao.GetEntradasByUsuarioAsync(idUsuario);
 
     public Task<IEnumerable<VentaResumen>> GetAllVentasAsync() =>
-        repository.GetAllVentasAsync();
+        dao.GetAllVentasAsync();
 
     public Task<IEnumerable<VentaResumen>> GetVentasByUsuarioAsync(string idUsuario) =>
-        repository.GetVentasByUsuarioAsync(idUsuario);
+        dao.GetVentasByUsuarioAsync(idUsuario);
 
     public Task<IEnumerable<EntradaDetalle>> GetDetallesByVentaAsync(int idVenta) =>
-        entradaRepository.GetDetallesByVentaAsync(idVenta);
+        entradaDao.GetDetallesByVentaAsync(idVenta);
 
     public async Task<int> ComprarEntradasAsync(string idUsuario, List<ItemCarrito> items)
     {
@@ -32,8 +32,8 @@ public class VentaService(IVentaRepository repository, IEntradaRepository entrad
         if (itemsConCantidad.Sum(i => i.Cantidad) > 5)
             throw new InvalidOperationException("No se pueden comprar más de 5 entradas por transacción.");
 
-        var tasa = await repository.GetTasaVigenteAsync();
-        return await repository.CreateVentaAsync(idUsuario, itemsConCantidad, tasa);
+        var tasa = await dao.GetTasaVigenteAsync();
+        return await dao.CreateVentaAsync(idUsuario, itemsConCantidad, tasa);
     }
 
     public async Task ActualizarEstadoVentaAsync(int idVenta, string nuevoEstado)
@@ -42,6 +42,6 @@ public class VentaService(IVentaRepository repository, IEntradaRepository entrad
         if (!estadosValidos.Contains(nuevoEstado))
             throw new InvalidOperationException($"El estado '{nuevoEstado}' no es válido.");
 
-        await repository.UpdateEstadoVentaAsync(idVenta, nuevoEstado);
+        await dao.UpdateEstadoVentaAsync(idVenta, nuevoEstado);
     }
 }

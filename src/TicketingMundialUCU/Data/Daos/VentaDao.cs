@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
 public record TasaComision(int IdTasa, decimal Tasa, DateTime FechaDesde);
 
@@ -17,7 +17,7 @@ public record VentaResumen(
 
 public record ItemCarrito(int IdEvento, int IdEstadio, string IdSector, int Cantidad);
 
-public class VentaRepository(IConfiguration configuration) : IVentaRepository
+public class VentaDao(IConfiguration configuration) : IVentaDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;

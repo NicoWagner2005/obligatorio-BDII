@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IUserRepository
+public interface IUserDao
 {
     Task CreateAsync(
         string identityUserId,

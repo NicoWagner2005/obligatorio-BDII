@@ -1,14 +1,14 @@
 using Microsoft.AspNetCore.Identity;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 
 namespace TicketingMundialUCU.Services;
 
 public sealed class AdministratorJurisdictionService(
-    IAdministratorJurisdictionRepository repository,
+    IAdministratorJurisdictionDao dao,
     ICurrentUserContext currentUserContext)
 {
     public Task<IEnumerable<PaisSede>> GetHostCountriesAsync() =>
-        repository.GetHostCountriesAsync();
+        dao.GetHostCountriesAsync();
 
     public async Task<string> GetCurrentCountryAsync()
     {
@@ -18,7 +18,7 @@ public sealed class AdministratorJurisdictionService(
     public async Task<AdministratorScope> GetCurrentScopeAsync()
     {
         var administratorId = await currentUserContext.GetRequiredAdministratorIdAsync();
-        var country = await repository.GetCountryForAdministratorAsync(administratorId);
+        var country = await dao.GetCountryForAdministratorAsync(administratorId);
 
         return new AdministratorScope(
             administratorId,
@@ -36,7 +36,7 @@ public sealed class AdministratorJurisdictionService(
         }
 
         if (string.IsNullOrWhiteSpace(countryName) ||
-            !await repository.CountryExistsAsync(countryName))
+            !await dao.CountryExistsAsync(countryName))
         {
             return IdentityResult.Failed(new IdentityError
             {

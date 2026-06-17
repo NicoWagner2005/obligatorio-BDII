@@ -1,6 +1,6 @@
-namespace TicketingMundialUCU.Data.Repositories;
+namespace TicketingMundialUCU.Data.Daos;
 
-public interface IEventoRepository
+public interface IEventoDao
 {
     Task<IEnumerable<Equipo>> GetAllEquiposAsync();
     Task CreateEquipoAsync(string nombre);
