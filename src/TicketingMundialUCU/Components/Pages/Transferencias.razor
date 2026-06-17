@@ -109,8 +109,8 @@ else
                     {
                         <div class="transfer-empty py-4">
                             <div class="transfer-empty-icon">🎫</div>
-                            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">No tenés entradas disponibles</h5>
-                            <p class="text-muted small mb-3">Comprá una entrada para poder transferirla.</p>
+                            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">No tenés entradas transferibles</h5>
+                            <p class="text-muted small mb-3">Comprá una entrada o revisá si tus entradas ya alcanzaron el máximo de transferencias.</p>
                             <a href="/comprar" class="btn btn-primary">Comprar entradas</a>
                         </div>
                     }
@@ -326,7 +326,14 @@ else
     {
         if (_userId is null) return;
 
-        _misEntradas = (await VentaService.GetEntradasByUsuarioAsync(_userId)).ToList();
+        var entradas = (await VentaService.GetEntradasByUsuarioAsync(_userId)).ToList();
+        var transferenciasPorEntrada =
+            await TransferenciaService.GetCantidadTransferenciasEfectivasAsync(
+                entradas.Select(e => e.IdEntrada));
+
+        _misEntradas = entradas
+            .Where(e => transferenciasPorEntrada.GetValueOrDefault(e.IdEntrada, 0) < TransferenciaDao.MaxTransferenciasPorEntrada)
+            .ToList();
         _historial = (await TransferenciaService.GetTransferenciasByUsuarioAsync(_userId)).ToList();
         _pendientesRecibidas = _historial
             .Where(t => t.IdReceptor == _userId && t.Estado == "pendiente")

@@ -10,6 +10,10 @@ public class TransferenciaService(ITransferenciaDao dao)
     public Task<IEnumerable<TransferenciaDetalle>> GetPendientesRecibidasAsync(string idUsuario) =>
         dao.GetPendientesRecibidasAsync(idUsuario);
 
+    public Task<Dictionary<Guid, int>> GetCantidadTransferenciasEfectivasAsync(
+        IEnumerable<Guid> idsEntrada) =>
+        dao.GetCantidadTransferenciasEfectivasAsync(idsEntrada);
+
     public async Task<int> SolicitarTransferenciaAsync(
         string idSolicitante,
         Guid idEntrada,
