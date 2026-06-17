@@ -1,0 +1,331 @@
+@page "/admin/asignaciones"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "administrador")]
+@inject EventoService EventoService
+@inject FuncionarioService FuncionarioService
+@rendermode InteractiveServer
+
+<PageTitle>Asignaciones · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Asignaciones de funcionarios</h1>
+    <p class="page-subtitle">Asignación de funcionarios a sectores por evento</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+<!-- Selector de evento -->
+<div class="card mb-4">
+    <div class="card-header"><h6 class="mb-0">Seleccionar evento</h6></div>
+    <div class="card-body">
+        <select class="form-select" style="max-width:480px"
+                @onchange="OnEventoSeleccionadoAsync">
+            <option value="">— Seleccionar evento —</option>
+            @foreach (var ev in _eventos)
+            {
+                <option value="@ev.IdEvento">
+                    @ev.EquipoLocal vs @ev.EquipoVisitante · @ev.NombreEstadio · @ev.FechaHora.ToString("dd/MM/yyyy HH:mm")
+                </option>
+            }
+        </select>
+    </div>
+</div>
+
+<!-- Todas las asignaciones (siempre visible) -->
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Funcionarios asignados a sectores</h6>
+        <span class="badge bg-secondary">@_todasAsignaciones.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_todasAsignaciones.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay asignaciones registradas.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Legajo</th>
+                        <th>Email</th>
+                        <th>Evento</th>
+                        <th>Estadio</th>
+                        <th>Sector</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _todasAsignaciones)
+                    {
+                        var email = _funcionarios.FirstOrDefault(f => f.UsuarioId == a.IdFuncionario)?.Email ?? "—";
+                        <tr>
+                            <td class="fw-semibold">@a.NroLegajo</td>
+                            <td>@email</td>
+                            <td>@(a.EquipoLocal ?? "?") vs @(a.EquipoVisitante ?? "?") · @a.FechaHora.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@a.NombreEstadio</td>
+                            <td><span class="sector-badge sector-@a.IdSector">@a.IdSector</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (_eventoSeleccionado is not null)
+{
+    var sectoresHabilitados = _sectoresHabilitados.GetValueOrDefault(_eventoSeleccionado.IdEvento, []);
+
+    <!-- Agregar asignación -->
+    <div class="card mb-4">
+        <div class="card-header"><h6 class="mb-0">Agregar asignación</h6></div>
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Funcionario</label>
+                    <select class="form-select" @bind="_idFuncionarioNuevo">
+                        <option value="">— Seleccionar —</option>
+                        @foreach (var f in _funcionarios)
+                        {
+                            <option value="@f.UsuarioId">@f.NroLegajo · @f.Email</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sector</label>
+                    <select class="form-select" @bind="_idSectorNuevo">
+                        <option value="">— Seleccionar —</option>
+                        @foreach (var s in sectoresHabilitados)
+                        {
+                            <option value="@s.IdSector">Sector @s.IdSector</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100"
+                            @onclick="AgregarAsignacionAsync"
+                            disabled="@(string.IsNullOrEmpty(_idFuncionarioNuevo) || string.IsNullOrEmpty(_idSectorNuevo) || _guardando)">
+                        Asignar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asignaciones actuales del evento -->
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Asignaciones del evento</h6>
+            <span class="badge bg-secondary">@_asignaciones.Count</span>
+        </div>
+        <div class="card-body p-0">
+            @if (!_asignaciones.Any())
+            {
+                <div class="text-center text-muted py-4">
+                    <p class="mb-0">No hay funcionarios asignados a este evento.</p>
+                </div>
+            }
+            else
+            {
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Legajo</th>
+                            <th>Sector</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in _asignaciones)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@a.NroLegajo</td>
+                                <td><span class="sector-badge sector-@a.IdSector">@a.IdSector</span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => EliminarAsignacionAsync(a)">
+                                        Quitar
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <!-- Cobertura RF-77 -->
+    @if (_coberturas.Any())
+    {
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Cobertura de validaciones</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Legajo</th>
+                            <th>Sectores asignados</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (funcionarioId, sectores) in _coberturas)
+                        {
+                            var legajo = _funcionarios.FirstOrDefault(f => f.UsuarioId == funcionarioId)?.NroLegajo ?? funcionarioId;
+                            var todosValidados = sectores.All(s => s.Validado);
+                            <tr>
+                                <td class="fw-semibold">@legajo</td>
+                                <td>
+                                    @foreach (var s in sectores)
+                                    {
+                                        <span class="badge me-1 @(s.Validado ? "bg-success" : "bg-warning text-dark")">
+                                            @s.IdSector @(s.Validado ? "✓" : "⏳")
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (todosValidados)
+                                    {
+                                        <span class="badge bg-success">Completo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<EventoDetalle> _eventos = [];
+    private Dictionary<int, List<SectorHabilitado>> _sectoresHabilitados = [];
+    private List<FuncionarioInfo> _funcionarios = [];
+
+    private EventoDetalle? _eventoSeleccionado;
+    private List<AsignacionSector> _asignaciones = [];
+    private List<AsignacionSector> _todasAsignaciones = [];
+    private Dictionary<string, List<CoberturasSector>> _coberturas = [];
+
+    private string _idFuncionarioNuevo = string.Empty;
+    private string _idSectorNuevo = string.Empty;
+    private bool _guardando;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _eventos = (await EventoService.GetManagedEventosAsync()).ToList();
+        _sectoresHabilitados = await EventoService.GetManagedSectoresHabilitadosAsync();
+        _funcionarios = (await FuncionarioService.GetAllFuncionariosAsync()).ToList();
+        _todasAsignaciones = (await FuncionarioService.GetAllAsignacionesAsync()).ToList();
+    }
+
+    private async Task OnEventoSeleccionadoAsync(ChangeEventArgs e)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _idFuncionarioNuevo = string.Empty;
+        _idSectorNuevo = string.Empty;
+
+        if (!int.TryParse(e.Value?.ToString(), out var idEvento))
+        {
+            _eventoSeleccionado = null;
+            _asignaciones = [];
+            _coberturas = [];
+            return;
+        }
+
+        _eventoSeleccionado = _eventos.FirstOrDefault(ev => ev.IdEvento == idEvento);
+        await CargarAsignacionesYCoberturaAsync();
+    }
+
+    private async Task CargarAsignacionesYCoberturaAsync()
+    {
+        if (_eventoSeleccionado is null) return;
+
+        _asignaciones = (await FuncionarioService
+            .GetAsignacionesByEventoAsync(_eventoSeleccionado.IdEvento)).ToList();
+        _todasAsignaciones = (await FuncionarioService.GetAllAsignacionesAsync()).ToList();
+
+        var funcionariosConAsignacion = _asignaciones
+            .Select(a => a.IdFuncionario)
+            .Distinct()
+            .ToList();
+
+        _coberturas = [];
+        foreach (var idFunc in funcionariosConAsignacion)
+        {
+            var cobertura = (await FuncionarioService
+                .GetCoberturaSectoresAsync(idFunc, _eventoSeleccionado.IdEvento)).ToList();
+            if (cobertura.Any())
+                _coberturas[idFunc] = cobertura;
+        }
+    }
+
+    private async Task AgregarAsignacionAsync()
+    {
+        if (_eventoSeleccionado is null) return;
+        _guardando = true;
+        try
+        {
+            await FuncionarioService.AsignarSectorAsync(
+                _idFuncionarioNuevo,
+                _eventoSeleccionado.IdEvento,
+                _eventoSeleccionado.IdEstadio,
+                _idSectorNuevo);
+            _idFuncionarioNuevo = string.Empty;
+            _idSectorNuevo = string.Empty;
+            await CargarAsignacionesYCoberturaAsync();
+            _successMessage = "Funcionario asignado al sector correctamente.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task EliminarAsignacionAsync(AsignacionSector asignacion)
+    {
+        try
+        {
+            await FuncionarioService.EliminarAsignacionAsync(
+                asignacion.IdFuncionario,
+                asignacion.IdEvento,
+                asignacion.IdEstadio,
+                asignacion.IdSector);
+            await CargarAsignacionesYCoberturaAsync();
+            _successMessage = "Asignación eliminada.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

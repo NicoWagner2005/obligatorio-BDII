@@ -38,7 +38,23 @@
                     </div>
                     <div class="nav-item">
                         <NavLink class="nav-link" href="/historial-compras">
-                            <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Historial de compras
+                            <span class="bi bi-cart-nav-menu" aria-hidden="true"></span> Historial de compras
+                        </NavLink>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="funcionario">
+                <Authorized>
+                    <div class="nav-section">Validación</div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="/funcionario/mis-asignaciones">
+                            <span class="bi bi-calendar-check-nav-menu" aria-hidden="true"></span> Mis asignaciones
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="/funcionario/validar">
+                            <span class="bi bi-check-circle-nav-menu" aria-hidden="true"></span> Validar entrada
                         </NavLink>
                     </div>
                 </Authorized>
@@ -60,6 +76,16 @@
                     <div class="nav-item">
                         <NavLink class="nav-link" href="/admin/ventas">
                             <span class="bi bi-ticket-nav-menu" aria-hidden="true"></span> Ventas
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="/admin/funcionarios">
+                            <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Dispositivos
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="/admin/asignaciones">
+                            <span class="bi bi-person-check-nav-menu" aria-hidden="true"></span> Funcionarios
                         </NavLink>
                     </div>
                 </Authorized>

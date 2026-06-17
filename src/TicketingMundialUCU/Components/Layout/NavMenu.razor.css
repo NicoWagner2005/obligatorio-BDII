@@ -225,6 +225,21 @@
 .bi-grid-nav-menu {
     background-image: url("/icons/grid.svg");
 }
+.bi-cart-nav-menu {
+    background-image: url("/icons/cart.svg");
+}
+.bi-people-nav-menu {
+    background-image: url("/icons/people.svg");
+}
+.bi-person-check-nav-menu {
+    background-image: url("/icons/person-check.svg");
+}
+.bi-calendar-check-nav-menu {
+    background-image: url("/icons/calendar-check.svg");
+}
+.bi-check-circle-nav-menu {
+    background-image: url("/icons/check-circle.svg");
+}
 
 @media (min-width: 641px) {
     .navbar-toggler { display: none; }

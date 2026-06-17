@@ -19,4 +19,18 @@ public sealed class CurrentUserContext(AuthenticationStateProvider authenticatio
 
         return userId;
     }
+
+    public async Task<string> GetRequiredFuncionarioIdAsync()
+    {
+        var principal = (await authenticationStateProvider.GetAuthenticationStateAsync()).User;
+        var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId is null || !principal.IsInRole(UserRoles.Funcionario))
+        {
+            throw new UnauthorizedAccessException(
+                "Se requiere un funcionario autenticado para realizar esta operación.");
+        }
+
+        return userId;
+    }
 }

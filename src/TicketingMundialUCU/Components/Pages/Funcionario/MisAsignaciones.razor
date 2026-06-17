@@ -1,0 +1,99 @@
+@page "/funcionario/mis-asignaciones"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "funcionario")]
+@inject FuncionarioService FuncionarioService
+@rendermode InteractiveServer
+
+<PageTitle>Mis asignaciones</PageTitle>
+
+<div class="page-header">
+    <h1>Mis asignaciones</h1>
+    <p class="page-subtitle">Sectores asignados por evento y estado de validaciones</p>
+</div>
+
+@if (_cargando)
+{
+    <p class="text-muted">Cargando…</p>
+}
+else if (!_asignacionesPorEvento.Any())
+{
+    <div class="card">
+        <div class="card-body text-center text-muted py-5">
+            <p class="mb-0">No tenés asignaciones de sectores por el momento.</p>
+        </div>
+    </div>
+}
+else
+{
+    @foreach (var (idEvento, asignaciones) in _asignacionesPorEvento)
+    {
+        var primera = asignaciones.First();
+        var cobertura = _coberturasPorEvento.GetValueOrDefault(idEvento, []);
+        var todasValidadas = cobertura.Any() && cobertura.All(c => c.Validado);
+
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="fw-semibold">@primera.EquipoLocal vs @primera.EquipoVisitante</span>
+                    <span class="text-muted ms-2">· @primera.NombreEstadio</span>
+                    <span class="text-muted ms-2">· @primera.FechaHora.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                @if (todasValidadas)
+                {
+                    <span class="badge bg-success">Cobertura completa</span>
+                }
+                else
+                {
+                    <span class="badge bg-warning text-dark">Pendiente</span>
+                }
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var a in asignaciones)
+                    {
+                        var estado = cobertura.FirstOrDefault(c => c.IdSector == a.IdSector);
+                        var validado = estado?.Validado ?? false;
+                        <div class="d-flex align-items-center gap-1 border rounded px-3 py-2 @(validado ? "border-success bg-success bg-opacity-10" : "border-warning")">
+                            <span class="sector-badge sector-@a.IdSector">@a.IdSector</span>
+                            @if (validado)
+                            {
+                                <span class="text-success fw-semibold small">Validado ✓</span>
+                            }
+                            else
+                            {
+                                <span class="text-warning fw-semibold small">Pendiente ⏳</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _cargando = true;
+    private Dictionary<int, List<AsignacionSector>> _asignacionesPorEvento = [];
+    private Dictionary<int, List<CoberturasSector>> _coberturasPorEvento = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var asignaciones = (await FuncionarioService.GetMisAsignacionesAsync()).ToList();
+
+        _asignacionesPorEvento = asignaciones
+            .GroupBy(a => a.IdEvento)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var (idEvento, lista) in _asignacionesPorEvento)
+        {
+            var idFuncionario = lista.First().IdFuncionario;
+            var cobertura = (await FuncionarioService
+                .GetCoberturaSectoresAsync(idFuncionario, idEvento)).ToList();
+            _coberturasPorEvento[idEvento] = cobertura;
+        }
+
+        _cargando = false;
+    }
+}
