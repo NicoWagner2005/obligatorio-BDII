@@ -54,6 +54,21 @@ public sealed class TransferenciaServiceTests
             "otro@ucu.edu.uy");
     }
 
+    [Fact]
+    public async Task GetCantidadTransferenciasEfectivas_delega_en_el_dao()
+    {
+        var idEntrada = Guid.NewGuid();
+        var conteos = new Dictionary<Guid, int> { [idEntrada] = 2 };
+        _dao.GetCantidadTransferenciasEfectivasAsync(Arg.Any<IEnumerable<Guid>>())
+            .Returns(conteos);
+
+        var resultado = await _service.GetCantidadTransferenciasEfectivasAsync([idEntrada]);
+
+        Assert.Same(conteos, resultado);
+        await _dao.Received(1).GetCantidadTransferenciasEfectivasAsync(
+            Arg.Is<IEnumerable<Guid>>(ids => ids.SequenceEqual(new[] { idEntrada })));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
