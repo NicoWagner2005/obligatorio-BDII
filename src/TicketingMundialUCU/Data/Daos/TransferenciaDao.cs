@@ -25,6 +25,10 @@ public record TransferenciaDetalle(
 
 public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
 {
+    public const int MaxTransferenciasPorEntrada = 3;
+    private const string MaxTransferenciasMessage =
+        "La entrada seleccionada ya alcanzó el máximo de 3 transferencias.";
+
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
 
@@ -107,6 +111,8 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             throw new InvalidOperationException(
                 "La entrada seleccionada no pertenece actualmente a tu usuario.");
 
+        await ValidarLimiteTransferenciasAsync(connection, transaction, idEntrada);
+
         var tienePendiente = await connection.ExecuteScalarAsync<bool>(
             """
             SELECT EXISTS (
@@ -178,6 +184,29 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             new { IdUsuario = idUsuario });
     }
 
+    public async Task<Dictionary<Guid, int>> GetCantidadTransferenciasEfectivasAsync(
+        IEnumerable<Guid> idsEntrada)
+    {
+        var ids = idsEntrada.Distinct().ToArray();
+        if (ids.Length == 0)
+            return [];
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.QueryAsync<(Guid IdEntrada, int Cantidad)>(
+            """
+            SELECT
+                id_entrada     AS "IdEntrada",
+                COUNT(*)::int  AS "Cantidad"
+            FROM historial_custodia_entrada
+            WHERE tipo_movimiento = 'transferencia'
+              AND id_entrada = ANY(@IdsEntrada)
+            GROUP BY id_entrada
+            """,
+            new { IdsEntrada = ids });
+
+        return rows.ToDictionary(row => row.IdEntrada, row => row.Cantidad);
+    }
+
     public async Task AcceptAsync(int idTransferencia, string idReceptor)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -205,6 +234,8 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             throw new InvalidOperationException(
                 "La entrada ya no pertenece al usuario que solicitó la transferencia.");
 
+        await ValidarLimiteTransferenciasAsync(connection, transaction, transferencia.IdEntrada);
+
         await connection.ExecuteAsync(
             """
             UPDATE entradas
@@ -225,6 +256,20 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             WHERE id_transferencia = @IdTransferencia
             """,
             new { IdTransferencia = idTransferencia },
+            transaction);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO historial_custodia_entrada
+                (id_entrada, tipo_movimiento, fecha_movimiento, id_transferencia)
+            VALUES
+                (@IdEntrada, 'transferencia', NOW(), @IdTransferencia)
+            """,
+            new
+            {
+                transferencia.IdEntrada,
+                IdTransferencia = idTransferencia
+            },
             transaction);
 
         await transaction.CommitAsync();
@@ -278,6 +323,25 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             throw new InvalidOperationException("No se encontró la solicitud de transferencia.");
 
         return transferencia;
+    }
+
+    private static async Task ValidarLimiteTransferenciasAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid idEntrada)
+    {
+        var transferenciasEfectivas = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM historial_custodia_entrada
+            WHERE id_entrada = @IdEntrada
+              AND tipo_movimiento = 'transferencia'
+            """,
+            new { IdEntrada = idEntrada },
+            transaction);
+
+        if (transferenciasEfectivas >= MaxTransferenciasPorEntrada)
+            throw new InvalidOperationException(MaxTransferenciasMessage);
     }
 
     private static void ValidarTransferenciaPendiente(
