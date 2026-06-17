@@ -47,9 +47,11 @@ builder.Services.AddScoped<IEstadioDao, EstadioDao>();
 builder.Services.AddScoped<IEventoDao, EventoDao>();
 builder.Services.AddScoped<IVentaDao, VentaDao>();
 builder.Services.AddScoped<IEntradaDao, EntradaDao>();
+builder.Services.AddScoped<ITransferenciaDao, TransferenciaDao>();
 builder.Services.AddScoped<EstadioService>();
 builder.Services.AddScoped<EventoService>();
 builder.Services.AddScoped<VentaService>();
+builder.Services.AddScoped<TransferenciaService>();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();

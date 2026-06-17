@@ -225,6 +225,9 @@
 .bi-grid-nav-menu {
     background-image: url("/icons/grid.svg");
 }
+.bi-arrow-left-right-nav-menu {
+    background-image: url("/icons/arrow-left-right.svg");
+}
 
 @media (min-width: 641px) {
     .navbar-toggler { display: none; }

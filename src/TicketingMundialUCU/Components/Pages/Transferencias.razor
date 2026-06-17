@@ -1,0 +1,450 @@
+@page "/transferencias"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@using System.Security.Claims
+@attribute [Authorize(Roles = "general")]
+@inject VentaService VentaService
+@inject TransferenciaService TransferenciaService
+@inject AuthenticationStateProvider AuthProvider
+@rendermode InteractiveServer
+
+<PageTitle>Transferencias</PageTitle>
+
+<div class="page-header">
+    <h1>Transferencias</h1>
+    <p class="page-subtitle">Solicitá transferencias y respondé las que recibiste</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3 flex-shrink-0" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_cargando)
+{
+    <div class="text-center text-muted py-5">
+        <p class="mb-0">Cargando transferencias…</p>
+    </div>
+}
+else
+{
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="card transfer-panel h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Solicitudes recibidas</h6>
+                    <span class="badge bg-secondary">@_pendientesRecibidas.Count</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (!_pendientesRecibidas.Any())
+                    {
+                        <div class="transfer-empty">
+                            <div class="transfer-empty-icon">↔</div>
+                            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">Sin solicitudes pendientes</h5>
+                            <p class="text-muted small mb-0">Cuando otro usuario te transfiera una entrada, aparecerá acá.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var transferencia in _pendientesRecibidas)
+                        {
+                            var procesando = _respuestasEnProceso.Contains(transferencia.IdTransferencia);
+
+                            <div class="transfer-request-row">
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                        <span class="fw-semibold" style="font-size:.9rem">
+                                            @Partido(transferencia)
+                                        </span>
+                                        <span class="sector-badge sector-@transferencia.IdSector">@transferencia.IdSector</span>
+                                        <span class="status-pill sp-pending">pendiente</span>
+                                    </div>
+                                    <div class="transfer-meta">
+                                        De @transferencia.EmailSolicitante · Entrada @CodigoCorto(transferencia.IdEntrada)
+                                    </div>
+                                    <div class="transfer-meta">
+                                        @transferencia.FechaHoraEvento.ToString("dd MMM yyyy · HH:mm") hs · @transferencia.NombreEstadio
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            disabled="@procesando"
+                                            @onclick="() => RechazarAsync(transferencia.IdTransferencia)">
+                                        Rechazar
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-success"
+                                            disabled="@procesando"
+                                            @onclick="() => AceptarAsync(transferencia.IdTransferencia)">
+                                        Aceptar
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card transfer-panel h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">Solicitar transferencia</h6>
+                </div>
+                <div class="card-body">
+                    @if (!_misEntradas.Any())
+                    {
+                        <div class="transfer-empty py-4">
+                            <div class="transfer-empty-icon">🎫</div>
+                            <h5 class="fw-semibold mb-1" style="color:var(--text-2)">No tenés entradas disponibles</h5>
+                            <p class="text-muted small mb-3">Comprá una entrada para poder transferirla.</p>
+                            <a href="/comprar" class="btn btn-primary">Comprar entradas</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <form @onsubmit="SolicitarAsync" @onsubmit:preventDefault="true">
+                            <div class="mb-3">
+                                <label class="form-label" for="entrada-transferencia">Entrada</label>
+                                <select id="entrada-transferencia"
+                                        class="form-select"
+                                        @bind="_entradaSeleccionadaId"
+                                        disabled="@_solicitando">
+                                    @foreach (var entrada in _misEntradas)
+                                    {
+                                        <option value="@entrada.IdEntrada.ToString()">@ResumenEntrada(entrada)</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="email-receptor">Email del receptor</label>
+                                <input id="email-receptor"
+                                       type="email"
+                                       class="form-control"
+                                       placeholder="usuario@mail.com"
+                                       autocomplete="email"
+                                       @bind="_emailReceptor"
+                                       @bind:event="oninput"
+                                       disabled="@_solicitando" />
+                            </div>
+
+                            <button type="submit"
+                                    class="btn btn-primary w-100"
+                                    disabled="@(_solicitando || string.IsNullOrWhiteSpace(_entradaSeleccionadaId))">
+                                @(_solicitando ? "Enviando…" : "Enviar solicitud")
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="overflow:hidden">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Historial de transferencias</h6>
+            <span class="text-muted small">@_historial.Count registro@(_historial.Count != 1 ? "s" : "")</span>
+        </div>
+        <div class="card-body p-0">
+            @if (!_historial.Any())
+            {
+                <div class="transfer-empty">
+                    <div class="transfer-empty-icon">↔</div>
+                    <h5 class="fw-semibold mb-1" style="color:var(--text-2)">Sin historial</h5>
+                    <p class="text-muted small mb-0">Tus solicitudes enviadas y recibidas se listarán acá.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var transferencia in _historial)
+                {
+                    var enviadaPorMi = transferencia.IdSolicitante == _userId;
+
+                    <div class="transfer-history-row">
+                        <div class="transfer-direction @(enviadaPorMi ? "transfer-direction-out" : "transfer-direction-in")">
+                            @(enviadaPorMi ? "Enviada" : "Recibida")
+                        </div>
+
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <span class="fw-semibold" style="font-size:.875rem">@Partido(transferencia)</span>
+                                <span class="sector-badge sector-@transferencia.IdSector">@transferencia.IdSector</span>
+                                <span class="status-pill @EstadoPill(transferencia.Estado)">@transferencia.Estado</span>
+                            </div>
+                            <div class="transfer-meta">
+                                @TransferenciaParticipantes(transferencia) · Entrada @CodigoCorto(transferencia.IdEntrada)
+                            </div>
+                            <div class="transfer-meta">
+                                Solicitada el @transferencia.FechaSolicitud.ToString("dd MMM yyyy · HH:mm") hs
+                            </div>
+                        </div>
+
+                        <div class="text-end flex-shrink-0 transfer-history-event">
+                            <div>@transferencia.FechaHoraEvento.ToString("dd MMM yyyy")</div>
+                            <div class="text-muted">@transferencia.NombreEstadio</div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+<style>
+    .transfer-panel { min-height: 18rem; }
+
+    .transfer-empty {
+        text-align: center;
+        padding: 2.5rem 1.5rem;
+    }
+
+    .transfer-empty-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--r);
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--brand-bg);
+        color: var(--brand);
+        font-size: 1.35rem;
+    }
+
+    .transfer-request-row,
+    .transfer-history-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border-2);
+    }
+
+    .transfer-request-row:last-child,
+    .transfer-history-row:last-child {
+        border-bottom: 0;
+    }
+
+    .transfer-request-row:hover,
+    .transfer-history-row:hover {
+        background: #f8fafc;
+    }
+
+    .transfer-meta {
+        color: var(--text-3);
+        font-size: .75rem;
+        margin-top: .1rem;
+    }
+
+    .transfer-direction {
+        width: 4.75rem;
+        text-align: center;
+        border-radius: 9999px;
+        padding: .275rem .625rem;
+        font-size: .72rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .transfer-direction-out {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .transfer-direction-in {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .sp-rejected {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .sp-rejected::before { background: var(--danger); }
+
+    .transfer-history-event {
+        color: var(--text-2);
+        font-size: .75rem;
+        max-width: 10rem;
+    }
+
+    @@media (max-width: 700px) {
+        .transfer-request-row,
+        .transfer-history-row {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .transfer-history-event {
+            max-width: none;
+            text-align: left !important;
+        }
+    }
+</style>
+
+@code {
+    private List<EntradaDetalle> _misEntradas = [];
+    private List<TransferenciaDetalle> _historial = [];
+    private List<TransferenciaDetalle> _pendientesRecibidas = [];
+    private HashSet<int> _respuestasEnProceso = [];
+
+    private bool _cargando = true;
+    private bool _solicitando;
+    private string? _userId;
+    private string _entradaSeleccionadaId = "";
+    private string _emailReceptor = "";
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        _userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (_userId is not null)
+            await CargarDatosAsync();
+
+        _cargando = false;
+    }
+
+    private async Task CargarDatosAsync()
+    {
+        if (_userId is null) return;
+
+        _misEntradas = (await VentaService.GetEntradasByUsuarioAsync(_userId)).ToList();
+        _historial = (await TransferenciaService.GetTransferenciasByUsuarioAsync(_userId)).ToList();
+        _pendientesRecibidas = _historial
+            .Where(t => t.IdReceptor == _userId && t.Estado == "pendiente")
+            .ToList();
+
+        if (!_misEntradas.Any())
+        {
+            _entradaSeleccionadaId = "";
+            return;
+        }
+
+        var seleccionExiste = _misEntradas.Any(e => e.IdEntrada.ToString() == _entradaSeleccionadaId);
+        if (string.IsNullOrWhiteSpace(_entradaSeleccionadaId) || !seleccionExiste)
+            _entradaSeleccionadaId = _misEntradas[0].IdEntrada.ToString();
+    }
+
+    private async Task SolicitarAsync()
+    {
+        if (_userId is null) return;
+
+        _errorMessage = null;
+        _successMessage = null;
+        _solicitando = true;
+
+        try
+        {
+            if (!Guid.TryParse(_entradaSeleccionadaId, out var idEntrada))
+                throw new InvalidOperationException("Debe seleccionar una entrada.");
+
+            var idTransferencia = await TransferenciaService.SolicitarTransferenciaAsync(
+                _userId,
+                idEntrada,
+                _emailReceptor);
+
+            _successMessage = $"Solicitud #{idTransferencia} enviada.";
+            _emailReceptor = "";
+            await CargarDatosAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _solicitando = false;
+        }
+    }
+
+    private async Task AceptarAsync(int idTransferencia)
+    {
+        if (_userId is null) return;
+
+        _errorMessage = null;
+        _successMessage = null;
+        _respuestasEnProceso.Add(idTransferencia);
+
+        try
+        {
+            await TransferenciaService.AceptarTransferenciaAsync(idTransferencia, _userId);
+            _successMessage = $"Solicitud #{idTransferencia} aceptada.";
+            await CargarDatosAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _respuestasEnProceso.Remove(idTransferencia);
+        }
+    }
+
+    private async Task RechazarAsync(int idTransferencia)
+    {
+        if (_userId is null) return;
+
+        _errorMessage = null;
+        _successMessage = null;
+        _respuestasEnProceso.Add(idTransferencia);
+
+        try
+        {
+            await TransferenciaService.RechazarTransferenciaAsync(idTransferencia, _userId);
+            _successMessage = $"Solicitud #{idTransferencia} rechazada.";
+            await CargarDatosAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _respuestasEnProceso.Remove(idTransferencia);
+        }
+    }
+
+    private static string Partido(TransferenciaDetalle transferencia) =>
+        $"{transferencia.EquipoLocal ?? "—"} vs {transferencia.EquipoVisitante ?? "—"}";
+
+    private static string CodigoCorto(Guid idEntrada) =>
+        idEntrada.ToString("N")[..8].ToUpperInvariant();
+
+    private static string ResumenEntrada(EntradaDetalle entrada) =>
+        $"{entrada.EquipoLocal ?? "—"} vs {entrada.EquipoVisitante ?? "—"} · Sector {entrada.IdSector} · {CodigoCorto(entrada.IdEntrada)}";
+
+    private static string EstadoPill(string estado) =>
+        estado switch
+        {
+            "aceptada" => "sp-paid",
+            "rechazada" => "sp-rejected",
+            _ => "sp-pending"
+        };
+
+    private string TransferenciaParticipantes(TransferenciaDetalle transferencia)
+    {
+        if (transferencia.IdSolicitante == _userId)
+            return $"Para {transferencia.EmailReceptor}";
+
+        return $"De {transferencia.EmailSolicitante}";
+    }
+}
