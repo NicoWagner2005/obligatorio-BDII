@@ -238,13 +238,7 @@
 
         await SignInManager.SignInAsync(user, isPersistent: false);
 
-        var targetUrl = ReturnUrl;
-        if (string.IsNullOrWhiteSpace(targetUrl))
-            targetUrl = "/dashboard";
-        else if (!Uri.IsWellFormedUriString(targetUrl, UriKind.Relative))
-            targetUrl = NavigationManager.ToBaseRelativePath(targetUrl);
-
-        NavigationManager.NavigateTo(targetUrl, replace: true);
+        NavigationManager.NavigateTo("/dashboard", replace: true);
     }
 
     private sealed class InputModel : IValidatableObject
