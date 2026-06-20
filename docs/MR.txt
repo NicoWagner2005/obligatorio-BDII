@@ -95,6 +95,7 @@ FK(idEntrada) -> entradas(idEntrada)
 FK(idDispositivo) -> dispositivos_escaneo(idDispositivo)
 -- idEntrada NOT NULL
 -- fechaExpiracion NOT NULL
+RNE: Una entrada puede validarse como máximo una vez
 
 transferencias(idTransferencia, idEntrada, idSolicitante, idReceptor, estado, fechaSolicitud)
 PK(idTransferencia)
