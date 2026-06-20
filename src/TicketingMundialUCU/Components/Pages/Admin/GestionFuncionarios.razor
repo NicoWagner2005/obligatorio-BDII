@@ -45,12 +45,15 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">ID del dispositivo</label>
-                <div class="form-control bg-light text-muted font-monospace">@_nextIdentificador</div>
+                <input class="form-control font-monospace"
+                       placeholder="SCANNER-001"
+                       @bind="_idDispositivoNuevo"
+                       @bind:event="oninput" />
             </div>
             <div class="col-md-2">
                 <button class="btn btn-primary w-100"
                         @onclick="RegistrarDispositivoAsync"
-                        disabled="@(string.IsNullOrEmpty(_idFuncionarioNuevo) || _guardando)">
+                        disabled="@(string.IsNullOrEmpty(_idFuncionarioNuevo) || string.IsNullOrWhiteSpace(_idDispositivoNuevo) || _guardando)">
                     @(_guardando ? "Registrando…" : "Autorizar")
                 </button>
             </div>
@@ -88,7 +91,7 @@
                     {
                         var email = _funcionarios.FirstOrDefault(f => f.UsuarioId == d.IdFuncionario)?.Email ?? "—";
                         <tr>
-                            <td class="fw-semibold font-monospace">@d.Identificador</td>
+                            <td class="fw-semibold font-monospace">@d.IdDispositivo</td>
                             <td>@d.NroLegajo</td>
                             <td>@email</td>
                             <td class="text-muted small">@d.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</td>
@@ -118,14 +121,10 @@
     private List<DispositivoAutorizado> _dispositivos = [];
 
     private string _idFuncionarioNuevo = string.Empty;
+    private string _idDispositivoNuevo = string.Empty;
     private bool _guardando;
     private string? _errorMessage;
     private string? _successMessage;
-
-    private string _nextIdentificador =>
-        _dispositivos.Any()
-            ? $"SCANNER-{(_dispositivos.Max(d => d.IdDispositivo) + 1):D3}"
-            : "SCANNER-001";
 
     protected override async Task OnInitializedAsync() => await CargarDatosAsync();
 
@@ -140,8 +139,9 @@
         _guardando = true;
         try
         {
-            await FuncionarioService.RegistrarDispositivoAsync(_nextIdentificador, _idFuncionarioNuevo);
+            await FuncionarioService.RegistrarDispositivoAsync(_idDispositivoNuevo, _idFuncionarioNuevo);
             _idFuncionarioNuevo = string.Empty;
+            _idDispositivoNuevo = string.Empty;
             await CargarDatosAsync();
             _successMessage = "Dispositivo autorizado correctamente.";
             _errorMessage = null;
@@ -153,7 +153,7 @@
         finally { _guardando = false; }
     }
 
-    private async Task EliminarDispositivoAsync(int idDispositivo)
+    private async Task EliminarDispositivoAsync(string idDispositivo)
     {
         try
         {

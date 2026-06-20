@@ -30,7 +30,6 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             """
             SELECT
                 d.id_dispositivo  AS "IdDispositivo",
-                d.identificador   AS "Identificador",
                 d.id_funcionario  AS "IdFuncionario",
                 f.nro_legajo      AS "NroLegajo",
                 d.fecha_registro  AS "FechaRegistro",
@@ -38,9 +37,9 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                     SELECT 1 FROM validaciones_acceso va
                     WHERE va.id_dispositivo = d.id_dispositivo
                 ) AS "TieneValidaciones"
-            FROM dispositivos_autorizados d
+            FROM dispositivos_escaneo d
             JOIN funcionarios f ON f.usuario_id = d.id_funcionario
-            ORDER BY f.nro_legajo, d.identificador
+            ORDER BY f.nro_legajo, d.id_dispositivo
             """);
     }
 
@@ -51,7 +50,6 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             """
             SELECT
                 d.id_dispositivo  AS "IdDispositivo",
-                d.identificador   AS "Identificador",
                 d.id_funcionario  AS "IdFuncionario",
                 f.nro_legajo      AS "NroLegajo",
                 d.fecha_registro  AS "FechaRegistro",
@@ -59,21 +57,21 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                     SELECT 1 FROM validaciones_acceso va
                     WHERE va.id_dispositivo = d.id_dispositivo
                 ) AS "TieneValidaciones"
-            FROM dispositivos_autorizados d
+            FROM dispositivos_escaneo d
             JOIN funcionarios f ON f.usuario_id = d.id_funcionario
             WHERE d.id_funcionario = @IdFuncionario
-            ORDER BY d.identificador
+            ORDER BY d.id_dispositivo
             """,
             new { IdFuncionario = idFuncionario });
     }
 
-    public async Task<bool> IsDispositivoDelFuncionarioAsync(int idDispositivo, string idFuncionario)
+    public async Task<bool> IsDispositivoDelFuncionarioAsync(string idDispositivo, string idFuncionario)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.ExecuteScalarAsync<bool>(
             """
             SELECT EXISTS (
-                SELECT 1 FROM dispositivos_autorizados
+                SELECT 1 FROM dispositivos_escaneo
                 WHERE id_dispositivo = @IdDispositivo
                   AND id_funcionario = @IdFuncionario
             )
@@ -81,22 +79,22 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             new { IdDispositivo = idDispositivo, IdFuncionario = idFuncionario });
     }
 
-    public async Task CreateDispositivoAsync(string identificador, string idFuncionario)
+    public async Task CreateDispositivoAsync(string idDispositivo, string idFuncionario)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(
             """
-            INSERT INTO dispositivos_autorizados (identificador, id_funcionario)
-            VALUES (@Identificador, @IdFuncionario)
+            INSERT INTO dispositivos_escaneo (id_dispositivo, id_funcionario)
+            VALUES (@IdDispositivo, @IdFuncionario)
             """,
-            new { Identificador = identificador, IdFuncionario = idFuncionario });
+            new { IdDispositivo = idDispositivo, IdFuncionario = idFuncionario });
     }
 
-    public async Task<bool> DeleteDispositivoAsync(int idDispositivo)
+    public async Task<bool> DeleteDispositivoAsync(string idDispositivo)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var deleted = await connection.ExecuteAsync(
-            """DELETE FROM dispositivos_autorizados WHERE id_dispositivo = @IdDispositivo""",
+            """DELETE FROM dispositivos_escaneo WHERE id_dispositivo = @IdDispositivo""",
             new { IdDispositivo = idDispositivo });
         return deleted == 1;
     }
@@ -261,7 +259,7 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             new { IdEntrada = idEntrada });
     }
 
-    public async Task ValidarEntradaAsync(Guid idEntrada, string idFuncionario, int idDispositivo)
+    public async Task ValidarEntradaAsync(Guid idEntrada, string idFuncionario, string idDispositivo)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();

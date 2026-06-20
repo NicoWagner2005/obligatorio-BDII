@@ -22,15 +22,15 @@ public class FuncionarioService(
         return await dao.GetDispositivosByFuncionarioAsync(id);
     }
 
-    public async Task RegistrarDispositivoAsync(string identificador, string idFuncionario)
+    public async Task RegistrarDispositivoAsync(string idDispositivo, string idFuncionario)
     {
-        if (string.IsNullOrWhiteSpace(identificador))
-            throw new InvalidOperationException("El identificador del dispositivo es obligatorio.");
+        if (string.IsNullOrWhiteSpace(idDispositivo))
+            throw new InvalidOperationException("El ID del dispositivo es obligatorio.");
 
-        await dao.CreateDispositivoAsync(identificador.Trim(), idFuncionario);
+        await dao.CreateDispositivoAsync(idDispositivo.Trim(), idFuncionario);
     }
 
-    public async Task EliminarDispositivoAsync(int idDispositivo)
+    public async Task EliminarDispositivoAsync(string idDispositivo)
     {
         if (!await dao.DeleteDispositivoAsync(idDispositivo))
             throw new InvalidOperationException("No se encontró el dispositivo.");
@@ -68,7 +68,7 @@ public class FuncionarioService(
 
     // ── Validación ────────────────────────────────────────────────
 
-    public async Task ValidarEntradaAsync(Guid idEntrada, int idDispositivo)
+    public async Task ValidarEntradaAsync(Guid idEntrada, string idDispositivo)
     {
         var idFuncionario = await userContext.GetRequiredFuncionarioIdAsync();
 

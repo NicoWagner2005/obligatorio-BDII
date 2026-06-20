@@ -27,10 +27,10 @@ else
             <div class="mb-3">
                 <label class="form-label fw-semibold">Dispositivo</label>
                 <select class="form-select" @bind="_idDispositivoSeleccionado">
-                    <option value="0">— Seleccionar dispositivo —</option>
+                    <option value="">— Seleccionar dispositivo —</option>
                     @foreach (var d in _dispositivos)
                     {
-                        <option value="@d.IdDispositivo">@d.Identificador</option>
+                        <option value="@d.IdDispositivo">@d.IdDispositivo</option>
                     }
                 </select>
             </div>
@@ -45,7 +45,7 @@ else
 
             <button class="btn btn-primary"
                     @onclick="ValidarAsync"
-                    disabled="@(_idDispositivoSeleccionado == 0 || string.IsNullOrWhiteSpace(_idEntradaTexto) || _validando)">
+                    disabled="@(string.IsNullOrEmpty(_idDispositivoSeleccionado) || string.IsNullOrWhiteSpace(_idEntradaTexto) || _validando)">
                 @(_validando ? "Validando…" : "Validar entrada")
             </button>
         </div>
@@ -69,7 +69,7 @@ else
 
 @code {
     private List<DispositivoAutorizado> _dispositivos = [];
-    private int _idDispositivoSeleccionado;
+    private string _idDispositivoSeleccionado = string.Empty;
     private string _idEntradaTexto = string.Empty;
     private bool _validando;
     private bool _validacionExitosa;

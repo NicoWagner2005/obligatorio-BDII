@@ -3,8 +3,7 @@ namespace TicketingMundialUCU.Data.Daos;
 public record FuncionarioInfo(string UsuarioId, string NroLegajo, string Email);
 
 public record DispositivoAutorizado(
-    int IdDispositivo,
-    string Identificador,
+    string IdDispositivo,
     string IdFuncionario,
     string NroLegajo,
     DateTime FechaRegistro,
@@ -38,9 +37,9 @@ public interface IFuncionarioDao
     // Dispositivos
     Task<IEnumerable<DispositivoAutorizado>> GetAllDispositivosAsync();
     Task<IEnumerable<DispositivoAutorizado>> GetDispositivosByFuncionarioAsync(string idFuncionario);
-    Task<bool> IsDispositivoDelFuncionarioAsync(int idDispositivo, string idFuncionario);
-    Task CreateDispositivoAsync(string identificador, string idFuncionario);
-    Task<bool> DeleteDispositivoAsync(int idDispositivo);
+    Task<bool> IsDispositivoDelFuncionarioAsync(string idDispositivo, string idFuncionario);
+    Task CreateDispositivoAsync(string idDispositivo, string idFuncionario);
+    Task<bool> DeleteDispositivoAsync(string idDispositivo);
 
     // Asignaciones
     Task<IEnumerable<AsignacionSector>> GetAllAsignacionesAsync();
@@ -52,7 +51,7 @@ public interface IFuncionarioDao
 
     // Validación
     Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid idEntrada);
-    Task ValidarEntradaAsync(Guid idEntrada, string idFuncionario, int idDispositivo);
+    Task ValidarEntradaAsync(Guid idEntrada, string idFuncionario, string idDispositivo);
 
     // Cobertura RF-77
     Task<IEnumerable<CoberturasSector>> GetCoberturaSectoresAsync(string idFuncionario, int idEvento);
