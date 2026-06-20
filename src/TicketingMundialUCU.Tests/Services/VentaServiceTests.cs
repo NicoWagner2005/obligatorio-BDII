@@ -112,6 +112,7 @@ public sealed class VentaServiceTests
         {
             new EntradaDetalle(
                 Guid.NewGuid(),
+                Guid.NewGuid(),
                 1,
                 1,
                 10,

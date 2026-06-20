@@ -70,7 +70,14 @@ else
                     <span>Sector <strong>@entrada.IdSector</strong></span>
                     <span class="status-pill @estadoPill">@entrada.EstadoVenta</span>
                 </div>
-                <code class="ticket-code">@entrada.IdEntrada.ToString().ToUpper()</code>
+                @if (entrada.IdTokenQr is Guid idTokenQr)
+                {
+                    <code class="ticket-code">@idTokenQr.ToString().ToUpperInvariant()</code>
+                }
+                else
+                {
+                    <span class="text-muted small">Sin token QR activo</span>
+                }
             </div>
         </div>
     }

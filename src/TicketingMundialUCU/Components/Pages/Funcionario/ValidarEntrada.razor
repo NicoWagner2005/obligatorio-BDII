@@ -36,16 +36,16 @@ else
             </div>
 
             <div class="mb-3">
-                <label class="form-label fw-semibold">ID de la entrada</label>
+                <label class="form-label fw-semibold">Token QR</label>
                 <input class="form-control font-monospace"
                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                       @bind="_idEntradaTexto"
+                       @bind="_idTokenQrTexto"
                        @bind:event="oninput" />
             </div>
 
             <button class="btn btn-primary"
                     @onclick="ValidarAsync"
-                    disabled="@(string.IsNullOrEmpty(_idDispositivoSeleccionado) || string.IsNullOrWhiteSpace(_idEntradaTexto) || _validando)">
+                    disabled="@(string.IsNullOrEmpty(_idDispositivoSeleccionado) || string.IsNullOrWhiteSpace(_idTokenQrTexto) || _validando)">
                 @(_validando ? "Validando…" : "Validar entrada")
             </button>
         </div>
@@ -70,7 +70,7 @@ else
 @code {
     private List<DispositivoAutorizado> _dispositivos = [];
     private string _idDispositivoSeleccionado = string.Empty;
-    private string _idEntradaTexto = string.Empty;
+    private string _idTokenQrTexto = string.Empty;
     private bool _validando;
     private bool _validacionExitosa;
     private string? _errorMessage;
@@ -85,18 +85,18 @@ else
         _errorMessage = null;
         _validacionExitosa = false;
 
-        if (!Guid.TryParse(_idEntradaTexto.Trim(), out var idEntrada))
+        if (!Guid.TryParse(_idTokenQrTexto.Trim(), out var idTokenQr))
         {
-            _errorMessage = "El ID de la entrada no tiene un formato válido.";
+            _errorMessage = "El token QR no tiene un formato válido.";
             return;
         }
 
         _validando = true;
         try
         {
-            await FuncionarioService.ValidarEntradaAsync(idEntrada, _idDispositivoSeleccionado);
+            await FuncionarioService.ValidarEntradaAsync(idTokenQr, _idDispositivoSeleccionado);
             _validacionExitosa = true;
-            _idEntradaTexto = string.Empty;
+            _idTokenQrTexto = string.Empty;
         }
         catch (Exception ex)
         {

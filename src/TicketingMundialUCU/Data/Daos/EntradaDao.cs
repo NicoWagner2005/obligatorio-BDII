@@ -5,6 +5,7 @@ namespace TicketingMundialUCU.Data.Daos;
 
 public record EntradaDetalle(
     Guid IdEntrada,
+    Guid? IdTokenQr,
     int IdVenta,
     int NroLineaDetalleVenta,
     int IdEvento,
@@ -25,6 +26,7 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
     private const string EntradaDetalleSelectFrom = """
         SELECT
             en.id_entrada                       AS "IdEntrada",
+            tq.id_token_qr                      AS "IdTokenQr",
             en.id_venta                         AS "IdVenta",
             en.nro_linea_detalle_venta          AS "NroLineaDetalleVenta",
             dv.id_evento                        AS "IdEvento",
@@ -37,8 +39,9 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
             v.estado                            AS "EstadoVenta",
             EXISTS (
                 SELECT 1
-                FROM validaciones_acceso va
-                WHERE va.id_entrada = en.id_entrada
+                FROM tokens_qr tq_validado
+                WHERE tq_validado.id_entrada = en.id_entrada
+                  AND tq_validado.id_dispositivo IS NOT NULL
             )                                   AS "Consumida"
         FROM entradas en
         JOIN detalle_venta dv
@@ -53,6 +56,14 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
         LEFT JOIN equipo_juega_evento eje_v
             ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
         LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+        LEFT JOIN LATERAL (
+            SELECT id_token_qr
+            FROM tokens_qr
+            WHERE id_entrada = en.id_entrada
+              AND fecha_expiracion > LOCALTIMESTAMP
+            ORDER BY fecha_expiracion DESC, id_token_qr
+            LIMIT 1
+        ) tq ON TRUE
         """;
 
     public async Task<IEnumerable<EntradaDetalle>> GetEntradasByUsuarioAsync(string idUsuario)

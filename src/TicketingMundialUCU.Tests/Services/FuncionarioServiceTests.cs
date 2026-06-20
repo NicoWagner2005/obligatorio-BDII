@@ -61,11 +61,11 @@ public sealed class FuncionarioServiceTests
     [Fact]
     public async Task ValidarEntrada_con_dispositivo_no_autorizado_rechaza_la_operacion()
     {
-        var idEntrada = Guid.NewGuid();
+        var idTokenQr = Guid.NewGuid();
         _dao.IsDispositivoDelFuncionarioAsync("SCANNER-011", "funcionario-1").Returns(false);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.ValidarEntradaAsync(idEntrada, "SCANNER-011"));
+            _service.ValidarEntradaAsync(idTokenQr, "SCANNER-011"));
 
         Assert.Equal("El dispositivo no está autorizado para este funcionario.", exception.Message);
         await _dao.DidNotReceiveWithAnyArgs().GetEntradaParaValidarAsync(default);
@@ -73,18 +73,68 @@ public sealed class FuncionarioServiceTests
     }
 
     [Fact]
-    public async Task ValidarEntrada_valida_delega_en_el_dao_con_id_dispositivo_textual()
+    public async Task ValidarEntrada_con_token_inexistente_o_expirado_rechaza_la_operacion()
     {
+        var idTokenQr = Guid.NewGuid();
+        _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
+        _dao.GetEntradaParaValidarAsync(idTokenQr).Returns((EntradaValidacionInfo?)null);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
+
+        Assert.Equal("No se encontró un token QR válido.", exception.Message);
+        await _dao.DidNotReceiveWithAnyArgs().ExisteAsignacionAsync(default!, default, default, default!);
+        await _dao.DidNotReceiveWithAnyArgs().ValidarEntradaAsync(default, default!, default!);
+    }
+
+    [Fact]
+    public async Task ValidarEntrada_con_entrada_ya_validada_rechaza_la_operacion()
+    {
+        var idTokenQr = Guid.NewGuid();
         var idEntrada = Guid.NewGuid();
         _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
-        _dao.GetEntradaParaValidarAsync(idEntrada)
-            .Returns(new EntradaValidacionInfo(idEntrada, false, 7, 3, "A"));
+        _dao.GetEntradaParaValidarAsync(idTokenQr)
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, true, 7, 3, "A"));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
+
+        Assert.Equal("La entrada ya fue validada anteriormente.", exception.Message);
+        await _dao.DidNotReceiveWithAnyArgs().ExisteAsignacionAsync(default!, default, default, default!);
+        await _dao.DidNotReceiveWithAnyArgs().ValidarEntradaAsync(default, default!, default!);
+    }
+
+    [Fact]
+    public async Task ValidarEntrada_sin_asignacion_al_sector_rechaza_la_operacion()
+    {
+        var idTokenQr = Guid.NewGuid();
+        var idEntrada = Guid.NewGuid();
+        _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
+        _dao.GetEntradaParaValidarAsync(idTokenQr)
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A"));
+        _dao.ExisteAsignacionAsync("funcionario-1", 7, 3, "A").Returns(false);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
+
+        Assert.Equal("No tenés asignación para el sector de esta entrada en este evento.", exception.Message);
+        await _dao.DidNotReceiveWithAnyArgs().ValidarEntradaAsync(default, default!, default!);
+    }
+
+    [Fact]
+    public async Task ValidarEntrada_valida_delega_en_el_dao_con_id_dispositivo_textual()
+    {
+        var idTokenQr = Guid.NewGuid();
+        var idEntrada = Guid.NewGuid();
+        _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
+        _dao.GetEntradaParaValidarAsync(idTokenQr)
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A"));
         _dao.ExisteAsignacionAsync("funcionario-1", 7, 3, "A").Returns(true);
 
-        await _service.ValidarEntradaAsync(idEntrada, "SCANNER-012");
+        await _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012");
 
         await _dao.Received(1).ValidarEntradaAsync(
-            idEntrada,
+            idTokenQr,
             "funcionario-1",
             "SCANNER-012");
     }

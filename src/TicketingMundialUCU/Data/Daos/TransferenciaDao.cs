@@ -368,8 +368,9 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             """
             SELECT EXISTS (
                 SELECT 1
-                FROM validaciones_acceso
+                FROM tokens_qr
                 WHERE id_entrada = @IdEntrada
+                  AND id_dispositivo IS NOT NULL
             )
             """,
             new { IdEntrada = idEntrada },

@@ -32,10 +32,9 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                 d.id_dispositivo  AS "IdDispositivo",
                 d.id_funcionario  AS "IdFuncionario",
                 f.nro_legajo      AS "NroLegajo",
-                d.fecha_registro  AS "FechaRegistro",
                 EXISTS (
-                    SELECT 1 FROM validaciones_acceso va
-                    WHERE va.id_dispositivo = d.id_dispositivo
+                    SELECT 1 FROM tokens_qr tq
+                    WHERE tq.id_dispositivo = d.id_dispositivo
                 ) AS "TieneValidaciones"
             FROM dispositivos_escaneo d
             JOIN funcionarios f ON f.usuario_id = d.id_funcionario
@@ -52,10 +51,9 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                 d.id_dispositivo  AS "IdDispositivo",
                 d.id_funcionario  AS "IdFuncionario",
                 f.nro_legajo      AS "NroLegajo",
-                d.fecha_registro  AS "FechaRegistro",
                 EXISTS (
-                    SELECT 1 FROM validaciones_acceso va
-                    WHERE va.id_dispositivo = d.id_dispositivo
+                    SELECT 1 FROM tokens_qr tq
+                    WHERE tq.id_dispositivo = d.id_dispositivo
                 ) AS "TieneValidaciones"
             FROM dispositivos_escaneo d
             JOIN funcionarios f ON f.usuario_id = d.id_funcionario
@@ -235,17 +233,19 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         return deleted == 1;
     }
 
-    public async Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid idEntrada)
+    public async Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid idTokenQr)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QuerySingleOrDefaultAsync<EntradaValidacionInfo>(
             """
             SELECT
+                tq.id_token_qr             AS "IdTokenQr",
                 en.id_entrada              AS "IdEntrada",
                 EXISTS (
                     SELECT 1
-                    FROM validaciones_acceso va
-                    WHERE va.id_entrada = en.id_entrada
+                    FROM tokens_qr tq_validado
+                    WHERE tq_validado.id_entrada = en.id_entrada
+                      AND tq_validado.id_dispositivo IS NOT NULL
                 )                          AS "Consumida",
                 dv.id_evento               AS "IdEvento",
                 dv.id_estadio              AS "IdEstadio",
@@ -254,12 +254,14 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             JOIN detalle_venta dv
                 ON en.id_venta = dv.id_venta
                AND en.nro_linea_detalle_venta = dv.nro_linea
-            WHERE en.id_entrada = @IdEntrada
+            JOIN tokens_qr tq ON tq.id_entrada = en.id_entrada
+            WHERE tq.id_token_qr = @IdTokenQr
+              AND tq.fecha_expiracion > LOCALTIMESTAMP
             """,
-            new { IdEntrada = idEntrada });
+            new { IdTokenQr = idTokenQr });
     }
 
-    public async Task ValidarEntradaAsync(Guid idEntrada, string idFuncionario, string idDispositivo)
+    public async Task ValidarEntradaAsync(Guid idTokenQr, string idFuncionario, string idDispositivo)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -267,23 +269,28 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
 
         var entradaBloqueada = await connection.QuerySingleOrDefaultAsync<Guid?>(
             """
-            SELECT id_entrada
-            FROM entradas
-            WHERE id_entrada = @IdEntrada
-            FOR UPDATE
+            SELECT en.id_entrada
+            FROM tokens_qr tq
+            JOIN entradas en ON en.id_entrada = tq.id_entrada
+            WHERE tq.id_token_qr = @IdTokenQr
+              AND tq.fecha_expiracion > LOCALTIMESTAMP
+            FOR UPDATE OF tq, en
             """,
-            new { IdEntrada = idEntrada },
+            new { IdTokenQr = idTokenQr },
             transaction);
 
         if (entradaBloqueada is null)
-            throw new InvalidOperationException("No se encontró la entrada.");
+            throw new InvalidOperationException("No se encontró un token QR válido.");
+
+        var idEntrada = entradaBloqueada.Value;
 
         var yaValidada = await connection.ExecuteScalarAsync<bool>(
             """
             SELECT EXISTS (
                 SELECT 1
-                FROM validaciones_acceso
+                FROM tokens_qr
                 WHERE id_entrada = @IdEntrada
+                  AND id_dispositivo IS NOT NULL
             )
             """,
             new { IdEntrada = idEntrada },
@@ -294,10 +301,11 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
 
         await connection.ExecuteAsync(
             """
-            INSERT INTO validaciones_acceso (id_entrada, id_funcionario, id_dispositivo)
-            VALUES (@IdEntrada, @IdFuncionario, @IdDispositivo)
+            UPDATE tokens_qr
+            SET id_dispositivo = @IdDispositivo
+            WHERE id_token_qr = @IdTokenQr
             """,
-            new { IdEntrada = idEntrada, IdFuncionario = idFuncionario, IdDispositivo = idDispositivo },
+            new { IdDispositivo = idDispositivo, IdTokenQr = idTokenQr },
             transaction);
 
         await transaction.CommitAsync();
@@ -313,14 +321,17 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                 fse.id_sector AS "IdSector",
                 EXISTS (
                     SELECT 1
-                    FROM validaciones_acceso va
-                    JOIN entradas en ON en.id_entrada = va.id_entrada
+                    FROM tokens_qr tq
+                    JOIN entradas en ON en.id_entrada = tq.id_entrada
                     JOIN detalle_venta dv
                         ON dv.id_venta = en.id_venta
                        AND dv.nro_linea = en.nro_linea_detalle_venta
-                    WHERE va.id_funcionario = fse.id_funcionario
+                    JOIN dispositivos_escaneo de
+                        ON de.id_dispositivo = tq.id_dispositivo
+                    WHERE de.id_funcionario = fse.id_funcionario
                       AND dv.id_evento      = fse.id_evento
                       AND dv.id_sector      = fse.id_sector
+                      AND tq.id_dispositivo IS NOT NULL
                 ) AS "Validado"
             FROM funcionario_sector_evento fse
             WHERE fse.id_funcionario = @IdFuncionario

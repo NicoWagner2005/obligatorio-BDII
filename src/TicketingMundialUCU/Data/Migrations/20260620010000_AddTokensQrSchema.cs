@@ -34,6 +34,10 @@ public partial class AddTokensQrSchema : Migration
 
             CREATE INDEX ix_tokens_qr_dispositivo
                 ON tokens_qr(id_dispositivo);
+
+            CREATE UNIQUE INDEX ux_tokens_qr_entrada_validada
+                ON tokens_qr(id_entrada)
+                WHERE id_dispositivo IS NOT NULL;
             """);
     }
 

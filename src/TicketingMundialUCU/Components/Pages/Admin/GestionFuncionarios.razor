@@ -82,7 +82,6 @@
                         <th>Dispositivo</th>
                         <th>Funcionario (legajo)</th>
                         <th>Email</th>
-                        <th>Fecha registro</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -94,7 +93,6 @@
                             <td class="fw-semibold font-monospace">@d.IdDispositivo</td>
                             <td>@d.NroLegajo</td>
                             <td>@email</td>
-                            <td class="text-muted small">@d.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</td>
                             <td class="text-end">
                                 @if (!d.TieneValidaciones)
                                 {

@@ -68,7 +68,7 @@ public class FuncionarioService(
 
     // ── Validación ────────────────────────────────────────────────
 
-    public async Task ValidarEntradaAsync(Guid idEntrada, string idDispositivo)
+    public async Task ValidarEntradaAsync(Guid idTokenQr, string idDispositivo)
     {
         var idFuncionario = await userContext.GetRequiredFuncionarioIdAsync();
 
@@ -76,8 +76,8 @@ public class FuncionarioService(
         if (!await dao.IsDispositivoDelFuncionarioAsync(idDispositivo, idFuncionario))
             throw new InvalidOperationException("El dispositivo no está autorizado para este funcionario.");
 
-        var entrada = await dao.GetEntradaParaValidarAsync(idEntrada)
-            ?? throw new InvalidOperationException("No se encontró la entrada.");
+        var entrada = await dao.GetEntradaParaValidarAsync(idTokenQr)
+            ?? throw new InvalidOperationException("No se encontró un token QR válido.");
 
         if (entrada.Consumida)
             throw new InvalidOperationException("La entrada ya fue validada anteriormente.");
@@ -86,7 +86,7 @@ public class FuncionarioService(
         if (!await dao.ExisteAsignacionAsync(idFuncionario, entrada.IdEvento, entrada.IdEstadio, entrada.IdSector))
             throw new InvalidOperationException("No tenés asignación para el sector de esta entrada en este evento.");
 
-        await dao.ValidarEntradaAsync(idEntrada, idFuncionario, idDispositivo);
+        await dao.ValidarEntradaAsync(idTokenQr, idFuncionario, idDispositivo);
     }
 
     // ── Cobertura RF-77 ───────────────────────────────────────────
