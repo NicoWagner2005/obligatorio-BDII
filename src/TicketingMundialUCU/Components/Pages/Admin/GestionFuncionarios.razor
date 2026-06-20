@@ -1,0 +1,170 @@
+@page "/admin/funcionarios"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "administrador")]
+@inject FuncionarioService FuncionarioService
+@rendermode InteractiveServer
+
+<PageTitle>Funcionarios · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Funcionarios</h1>
+    <p class="page-subtitle">Gestión de dispositivos de escaneo autorizados</p>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_errorMessage</span>
+        <button type="button" class="btn-close ms-3" @onclick="() => _errorMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="alert alert-success alert-dismissible d-flex align-items-center justify-content-between mb-4">
+        <span>@_successMessage</span>
+        <button type="button" class="btn-close ms-3" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+<!-- Autorizar nuevo dispositivo -->
+<div class="card mb-4">
+    <div class="card-header"><h6 class="mb-0">Autorizar dispositivo</h6></div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Funcionario</label>
+                <select class="form-select" @bind="_idFuncionarioNuevo">
+                    <option value="">— Seleccionar —</option>
+                    @foreach (var f in _funcionarios)
+                    {
+                        <option value="@f.UsuarioId">@f.NroLegajo · @f.Email</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">ID del dispositivo</label>
+                <div class="form-control bg-light text-muted font-monospace">@_nextIdentificador</div>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100"
+                        @onclick="RegistrarDispositivoAsync"
+                        disabled="@(string.IsNullOrEmpty(_idFuncionarioNuevo) || _guardando)">
+                    @(_guardando ? "Registrando…" : "Autorizar")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dispositivos autorizados -->
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Dispositivos autorizados</h6>
+        <span class="badge bg-secondary">@_dispositivos.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_dispositivos.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay dispositivos autorizados aún.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Dispositivo</th>
+                        <th>Funcionario (legajo)</th>
+                        <th>Email</th>
+                        <th>Fecha registro</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _dispositivos)
+                    {
+                        var email = _funcionarios.FirstOrDefault(f => f.UsuarioId == d.IdFuncionario)?.Email ?? "—";
+                        <tr>
+                            <td class="fw-semibold font-monospace">@d.Identificador</td>
+                            <td>@d.NroLegajo</td>
+                            <td>@email</td>
+                            <td class="text-muted small">@d.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="text-end">
+                                @if (!d.TieneValidaciones)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => EliminarDispositivoAsync(d.IdDispositivo)">
+                                        Eliminar
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">En uso</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<FuncionarioInfo> _funcionarios = [];
+    private List<DispositivoAutorizado> _dispositivos = [];
+
+    private string _idFuncionarioNuevo = string.Empty;
+    private bool _guardando;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private string _nextIdentificador =>
+        _dispositivos.Any()
+            ? $"SCANNER-{(_dispositivos.Max(d => d.IdDispositivo) + 1):D3}"
+            : "SCANNER-001";
+
+    protected override async Task OnInitializedAsync() => await CargarDatosAsync();
+
+    private async Task CargarDatosAsync()
+    {
+        _funcionarios = (await FuncionarioService.GetAllFuncionariosAsync()).ToList();
+        _dispositivos = (await FuncionarioService.GetAllDispositivosAsync()).ToList();
+    }
+
+    private async Task RegistrarDispositivoAsync()
+    {
+        _guardando = true;
+        try
+        {
+            await FuncionarioService.RegistrarDispositivoAsync(_nextIdentificador, _idFuncionarioNuevo);
+            _idFuncionarioNuevo = string.Empty;
+            await CargarDatosAsync();
+            _successMessage = "Dispositivo autorizado correctamente.";
+            _errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _guardando = false; }
+    }
+
+    private async Task EliminarDispositivoAsync(int idDispositivo)
+    {
+        try
+        {
+            await FuncionarioService.EliminarDispositivoAsync(idDispositivo);
+            await CargarDatosAsync();
+            _successMessage = "Dispositivo eliminado.";
+            _errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

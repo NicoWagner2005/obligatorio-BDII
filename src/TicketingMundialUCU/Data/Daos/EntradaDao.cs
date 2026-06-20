@@ -14,7 +14,8 @@ public record EntradaDetalle(
     string? EquipoVisitante,
     string IdSector,
     decimal PrecioUnitario,
-    string EstadoVenta);
+    string EstadoVenta,
+    bool Consumida);
 
 public class EntradaDao(IConfiguration configuration) : IEntradaDao
 {
@@ -33,7 +34,8 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
             eq_v.nombre                         AS "EquipoVisitante",
             dv.id_sector                        AS "IdSector",
             (dv.subtotal / dv.cantidad)         AS "PrecioUnitario",
-            v.estado                            AS "EstadoVenta"
+            v.estado                            AS "EstadoVenta",
+            en.consumida                        AS "Consumida"
         FROM entradas en
         JOIN detalle_venta dv
             ON en.id_venta = dv.id_venta

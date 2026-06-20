@@ -1,0 +1,107 @@
+@page "/funcionario/validar"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "funcionario")]
+@inject FuncionarioService FuncionarioService
+@rendermode InteractiveServer
+
+<PageTitle>Validar entrada</PageTitle>
+
+<div class="page-header">
+    <h1>Validar entrada</h1>
+    <p class="page-subtitle">Registrá el ingreso al evento desde tu dispositivo autorizado</p>
+</div>
+
+@if (!_dispositivos.Any())
+{
+    <div class="alert alert-warning">
+        No tenés dispositivos autorizados asignados. Contactá al administrador.
+    </div>
+}
+else
+{
+    <div class="card" style="max-width:560px">
+        <div class="card-body">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Dispositivo</label>
+                <select class="form-select" @bind="_idDispositivoSeleccionado">
+                    <option value="0">— Seleccionar dispositivo —</option>
+                    @foreach (var d in _dispositivos)
+                    {
+                        <option value="@d.IdDispositivo">@d.Identificador</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">ID de la entrada</label>
+                <input class="form-control font-monospace"
+                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                       @bind="_idEntradaTexto"
+                       @bind:event="oninput" />
+            </div>
+
+            <button class="btn btn-primary"
+                    @onclick="ValidarAsync"
+                    disabled="@(_idDispositivoSeleccionado == 0 || string.IsNullOrWhiteSpace(_idEntradaTexto) || _validando)">
+                @(_validando ? "Validando…" : "Validar entrada")
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger mt-3" style="max-width:560px">
+            <strong>Error:</strong> @_errorMessage
+        </div>
+    }
+
+    @if (_validacionExitosa)
+    {
+        <div class="alert alert-success mt-3" style="max-width:560px">
+            <strong>✓ Entrada validada correctamente.</strong>
+            <div class="small mt-1">La entrada fue marcada como consumida.</div>
+        </div>
+    }
+}
+
+@code {
+    private List<DispositivoAutorizado> _dispositivos = [];
+    private int _idDispositivoSeleccionado;
+    private string _idEntradaTexto = string.Empty;
+    private bool _validando;
+    private bool _validacionExitosa;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _dispositivos = (await FuncionarioService.GetMisDispositivosAsync()).ToList();
+    }
+
+    private async Task ValidarAsync()
+    {
+        _errorMessage = null;
+        _validacionExitosa = false;
+
+        if (!Guid.TryParse(_idEntradaTexto.Trim(), out var idEntrada))
+        {
+            _errorMessage = "El ID de la entrada no tiene un formato válido.";
+            return;
+        }
+
+        _validando = true;
+        try
+        {
+            await FuncionarioService.ValidarEntradaAsync(idEntrada, _idDispositivoSeleccionado);
+            _validacionExitosa = true;
+            _idEntradaTexto = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally { _validando = false; }
+    }
+}
