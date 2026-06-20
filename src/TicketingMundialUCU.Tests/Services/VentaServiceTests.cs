@@ -1,18 +1,18 @@
 using NSubstitute;
-using TicketingMundialUCU.Data.Repositories;
+using TicketingMundialUCU.Data.Daos;
 using TicketingMundialUCU.Services;
 
 namespace TicketingMundialUCU.Tests.Services;
 
 public sealed class VentaServiceTests
 {
-    private readonly IVentaRepository _repository = Substitute.For<IVentaRepository>();
-    private readonly IEntradaRepository _entradaRepository = Substitute.For<IEntradaRepository>();
+    private readonly IVentaDao _dao = Substitute.For<IVentaDao>();
+    private readonly IEntradaDao _entradaDao = Substitute.For<IEntradaDao>();
     private readonly VentaService _service;
 
     public VentaServiceTests()
     {
-        _service = new VentaService(_repository, _entradaRepository);
+        _service = new VentaService(_dao, _entradaDao);
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class VentaServiceTests
             _service.ComprarEntradasAsync("usuario-1", items));
 
         Assert.Equal("Debe seleccionar al menos una entrada.", exception.Message);
-        await _repository.DidNotReceive().GetTasaVigenteAsync();
+        await _dao.DidNotReceive().GetTasaVigenteAsync();
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public sealed class VentaServiceTests
     public async Task ComprarEntradas_valida_filtra_cantidades_y_usa_la_tasa_vigente()
     {
         var tasa = new TasaComision(4, 0.05m, new DateTime(2026, 1, 1));
-        _repository.GetTasaVigenteAsync().Returns(tasa);
-        _repository.CreateVentaAsync(
+        _dao.GetTasaVigenteAsync().Returns(tasa);
+        _dao.CreateVentaAsync(
                 "usuario-1",
                 Arg.Any<IEnumerable<ItemCarrito>>(),
                 tasa)
@@ -69,7 +69,7 @@ public sealed class VentaServiceTests
         var idVenta = await _service.ComprarEntradasAsync("usuario-1", items);
 
         Assert.Equal(37, idVenta);
-        await _repository.Received(1).CreateVentaAsync(
+        await _dao.Received(1).CreateVentaAsync(
             "usuario-1",
             Arg.Is<IEnumerable<ItemCarrito>>(guardados =>
                 guardados.SequenceEqual(new[]
@@ -87,7 +87,7 @@ public sealed class VentaServiceTests
     {
         await _service.ActualizarEstadoVentaAsync(12, estado);
 
-        await _repository.Received(1).UpdateEstadoVentaAsync(12, estado);
+        await _dao.Received(1).UpdateEstadoVentaAsync(12, estado);
     }
 
     [Theory]
@@ -100,13 +100,13 @@ public sealed class VentaServiceTests
             _service.ActualizarEstadoVentaAsync(12, estado));
 
         Assert.Equal($"El estado '{estado}' no es válido.", exception.Message);
-        await _repository.DidNotReceive().UpdateEstadoVentaAsync(
+        await _dao.DidNotReceive().UpdateEstadoVentaAsync(
             Arg.Any<int>(),
             Arg.Any<string>());
     }
 
     [Fact]
-    public async Task GetEntradasByUsuario_delega_en_entrada_repository()
+    public async Task GetEntradasByUsuario_delega_en_entrada_dao()
     {
         var entradas = new[]
         {
@@ -123,23 +123,23 @@ public sealed class VentaServiceTests
                 100m,
                 "paga")
         };
-        _entradaRepository.GetEntradasByUsuarioAsync("usuario-1").Returns(entradas);
+        _entradaDao.GetEntradasByUsuarioAsync("usuario-1").Returns(entradas);
 
         var resultado = await _service.GetEntradasByUsuarioAsync("usuario-1");
 
         Assert.Same(entradas, resultado);
-        await _entradaRepository.Received(1).GetEntradasByUsuarioAsync("usuario-1");
+        await _entradaDao.Received(1).GetEntradasByUsuarioAsync("usuario-1");
     }
 
     [Fact]
-    public async Task GetDetallesByVenta_delega_en_entrada_repository()
+    public async Task GetDetallesByVenta_delega_en_entrada_dao()
     {
         var entradas = Array.Empty<EntradaDetalle>();
-        _entradaRepository.GetDetallesByVentaAsync(37).Returns(entradas);
+        _entradaDao.GetDetallesByVentaAsync(37).Returns(entradas);
 
         var resultado = await _service.GetDetallesByVentaAsync(37);
 
         Assert.Same(entradas, resultado);
-        await _entradaRepository.Received(1).GetDetallesByVentaAsync(37);
+        await _entradaDao.Received(1).GetDetallesByVentaAsync(37);
     }
 }

@@ -141,6 +141,8 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
 
             for (var i = 0; i < item.Cantidad; i++)
             {
+                var idEntrada = Guid.NewGuid();
+
                 await connection.ExecuteAsync(
                     """
                     INSERT INTO entradas
@@ -150,11 +152,21 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
                     """,
                     new
                     {
-                        IdEntrada = Guid.NewGuid(),
+                        IdEntrada = idEntrada,
                         IdUsuario = idUsuario,
                         IdVenta = idVenta,
                         NroLinea = nroLinea,
                     },
+                    transaction);
+
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO historial_custodia_entrada
+                        (id_entrada, tipo_movimiento, fecha_movimiento, id_transferencia)
+                    VALUES
+                        (@IdEntrada, 'emision', NOW(), NULL)
+                    """,
+                    new { IdEntrada = idEntrada },
                     transaction);
             }
 

@@ -239,6 +239,8 @@
 }
 .bi-check-circle-nav-menu {
     background-image: url("/icons/check-circle.svg");
+.bi-arrow-left-right-nav-menu {
+    background-image: url("/icons/arrow-left-right.svg");
 }
 
 @media (min-width: 641px) {

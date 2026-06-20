@@ -265,9 +265,10 @@ else
             if (userId is not null)
             {
                 var entradas = (await VentaService.GetEntradasByUsuarioAsync(userId)).ToList();
+                var ventas = (await VentaService.GetVentasByUsuarioAsync(userId)).ToList();
                 _totalMisEntradas = entradas.Count;
                 _entradasPagas = entradas.Count(e => e.EstadoVenta == "paga");
-                _gastoTotal = entradas.Sum(e => e.PrecioUnitario);
+                _gastoTotal = ventas.Sum(v => v.MontoTotal);
             }
         }
 
