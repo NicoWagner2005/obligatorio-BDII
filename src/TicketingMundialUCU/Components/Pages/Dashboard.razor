@@ -7,6 +7,7 @@
 @inject EventoService EventoService
 @inject EstadioService EstadioService
 @inject VentaService VentaService
+@inject FuncionarioService FuncionarioService
 @inject AuthenticationStateProvider AuthProvider
 @rendermode InteractiveServer
 
@@ -28,9 +29,17 @@ else
             {
                 <span>Panel de administración · Mundial UCU 2026</span>
             }
-            else
+            else if (_esFuncionario)
+            {
+                <span>Panel de validación · Mundial UCU 2026</span>
+            }
+            else if (_esGeneral)
             {
                 <span>Tu portal de entradas para el Mundial UCU 2026</span>
+            }
+            else
+            {
+                <span>Tu cuenta no tiene un rol operativo asignado.</span>
             }
         </p>
     </div>
@@ -108,7 +117,71 @@ else
             </div>
         </div>
     }
-    else
+    else if (_esFuncionario)
+    {
+        <!-- Funcionario stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue">📅</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_eventosAsignados</div>
+                        <div class="stat-label">Eventos asignados</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple">🧭</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_sectoresAsignados</div>
+                        <div class="stat-label">Sectores asignados</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-amber">⏳</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_sectoresPendientes</div>
+                        <div class="stat-label">Sectores pendientes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green">📱</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_dispositivosAutorizados</div>
+                        <div class="stat-label">Dispositivos autorizados</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick links funcionario -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <a href="/funcionario/mis-asignaciones" class="quick-card">
+                    <div class="quick-card-icon">📋</div>
+                    <div>
+                        <div class="quick-card-label">Mis asignaciones</div>
+                        <div class="quick-card-sub">@_sectoresPendientes sector@(_sectoresPendientes != 1 ? "es" : "") pendiente@(_sectoresPendientes != 1 ? "s" : "") de validación</div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="/funcionario/validar" class="quick-card">
+                    <div class="quick-card-icon">✅</div>
+                    <div>
+                        <div class="quick-card-label">Validar entrada</div>
+                        <div class="quick-card-sub">@_dispositivosAutorizados dispositivo@(_dispositivosAutorizados != 1 ? "s" : "") autorizado@(_dispositivosAutorizados != 1 ? "s" : "")</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    }
+    else if (_esGeneral)
     {
         <!-- General user stats -->
         <div class="row g-3 mb-4">
@@ -172,61 +245,125 @@ else
             </div>
         </div>
     }
+    else
+    {
+        <div class="alert alert-warning">
+            No se encontró un rol válido para tu cuenta. Contactá al administrador para habilitar tu acceso.
+        </div>
+    }
 
-    <!-- Próximos eventos (todos los roles) -->
-    <div class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h6 class="mb-0">Próximos eventos</h6>
-            <span class="badge bg-secondary">@_proximosEventos.Count</span>
-        </div>
-        <div class="card-body p-0">
-            @if (!_proximosEventos.Any())
-            {
-                <div class="text-center text-muted py-5">
-                    <p class="mb-0">No hay eventos próximos programados.</p>
-                </div>
-            }
-            else
-            {
-                <div class="px-4 py-2">
-                    @foreach (var ev in _proximosEventos)
-                    {
-                        <div class="upcoming-event">
-                            <div class="upcoming-date">
-                                <div class="upcoming-date-day">@ev.FechaHora.ToString("dd")</div>
-                                <div class="upcoming-date-month">@ev.FechaHora.ToString("MMM")</div>
-                            </div>
-                            <div class="upcoming-divider"></div>
-                            <div class="flex-grow-1 min-width-0">
-                                <div class="match-display mb-1">
-                                    <span class="match-team">@(ev.EquipoLocal ?? "—")</span>
-                                    <span class="match-separator">VS</span>
-                                    <span class="match-team">@(ev.EquipoVisitante ?? "—")</span>
+    @if (_esFuncionario)
+    {
+        <!-- Próximas asignaciones del funcionario -->
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Próximas asignaciones</h6>
+                <span class="badge bg-secondary">@_proximasAsignaciones.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (!_proximasAsignaciones.Any())
+                {
+                    <div class="text-center text-muted py-5">
+                        <p class="mb-0">No tenés asignaciones próximas.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="px-4 py-2">
+                        @foreach (var asignacion in _proximasAsignaciones)
+                        {
+                            var sectores = _sectoresPorEvento.GetValueOrDefault(asignacion.IdEvento, []);
+                            <div class="upcoming-event">
+                                <div class="upcoming-date">
+                                    <div class="upcoming-date-day">@asignacion.FechaHora.ToString("dd")</div>
+                                    <div class="upcoming-date-month">@asignacion.FechaHora.ToString("MMM")</div>
                                 </div>
-                                <div style="font-size:.775rem;color:var(--text-3)">
-                                    @ev.NombreEstadio · @ev.FechaHora.ToString("HH:mm") hs
+                                <div class="upcoming-divider"></div>
+                                <div class="flex-grow-1 min-width-0">
+                                    <div class="match-display mb-1">
+                                        <span class="match-team">@(asignacion.EquipoLocal ?? "—")</span>
+                                        <span class="match-separator">VS</span>
+                                        <span class="match-team">@(asignacion.EquipoVisitante ?? "—")</span>
+                                    </div>
+                                    <div style="font-size:.775rem;color:var(--text-3)">
+                                        @asignacion.NombreEstadio · @asignacion.FechaHora.ToString("HH:mm") hs
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-1 mt-2">
+                                        @foreach (var sector in sectores)
+                                        {
+                                            <span class="sector-badge sector-@sector">@sector</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
-                            @if (!_esAdmin)
-                            {
-                                <a href="/comprar" class="btn btn-sm btn-outline-primary flex-shrink-0">
-                                    Ver
-                                </a>
-                            }
-                        </div>
-                    }
-                </div>
-            }
+                        }
+                    </div>
+                }
+            </div>
         </div>
-    </div>
+    }
+    else if (_esAdmin || _esGeneral)
+    {
+        <!-- Próximos eventos -->
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Próximos eventos</h6>
+                <span class="badge bg-secondary">@_proximosEventos.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (!_proximosEventos.Any())
+                {
+                    <div class="text-center text-muted py-5">
+                        <p class="mb-0">No hay eventos próximos programados.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="px-4 py-2">
+                        @foreach (var ev in _proximosEventos)
+                        {
+                            <div class="upcoming-event">
+                                <div class="upcoming-date">
+                                    <div class="upcoming-date-day">@ev.FechaHora.ToString("dd")</div>
+                                    <div class="upcoming-date-month">@ev.FechaHora.ToString("MMM")</div>
+                                </div>
+                                <div class="upcoming-divider"></div>
+                                <div class="flex-grow-1 min-width-0">
+                                    <div class="match-display mb-1">
+                                        <span class="match-team">@(ev.EquipoLocal ?? "—")</span>
+                                        <span class="match-separator">VS</span>
+                                        <span class="match-team">@(ev.EquipoVisitante ?? "—")</span>
+                                    </div>
+                                    <div style="font-size:.775rem;color:var(--text-3)">
+                                        @ev.NombreEstadio · @ev.FechaHora.ToString("HH:mm") hs
+                                    </div>
+                                </div>
+                                @if (_esGeneral)
+                                {
+                                    <a href="/comprar" class="btn btn-sm btn-outline-primary flex-shrink-0">
+                                        Ver
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
     private bool _cargando = true;
     private bool _esAdmin;
+    private bool _esFuncionario;
+    private bool _esGeneral;
     private string _nombre = "";
 
     private List<EventoDetalle> _proximosEventos = [];
+    private List<AsignacionSector> _proximasAsignaciones = [];
+    private Dictionary<int, List<string>> _sectoresPorEvento = [];
+
     private int _totalEstadios;
     private int _totalEventos;
     private int _totalVentas;
@@ -236,34 +373,79 @@ else
     private int _entradasPagas;
     private decimal _gastoTotal;
 
+    private int _eventosAsignados;
+    private int _sectoresAsignados;
+    private int _sectoresPendientes;
+    private int _dispositivosAutorizados;
+
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthProvider.GetAuthenticationStateAsync();
         var user = auth.User;
         _nombre = user.Identity?.Name?.Split('@')[0] ?? "Usuario";
-        _esAdmin = user.IsInRole("administrador");
+        _esAdmin = user.IsInRole(UserRoles.Administrador);
+        _esFuncionario = user.IsInRole(UserRoles.Funcionario);
+        _esGeneral = user.IsInRole(UserRoles.General);
 
         var ahora = DateTime.Now;
         var todosEventos = (await EventoService.GetAllEventosDetalladosAsync()).ToList();
-        _proximosEventos = todosEventos
-            .Where(e => e.FechaHora > ahora)
-            .OrderBy(e => e.FechaHora)
-            .Take(5)
-            .ToList();
 
         if (_esAdmin)
         {
+            _proximosEventos = todosEventos
+                .Where(e => e.FechaHora > ahora)
+                .OrderBy(e => e.FechaHora)
+                .Take(5)
+                .ToList();
+
             _totalEstadios = (await EstadioService.GetAllEstadiosAsync()).Count();
             _totalEventos = todosEventos.Count;
             var ventas = (await VentaService.GetAllVentasAsync()).ToList();
             _totalVentas = ventas.Count;
             _ventasPendientes = ventas.Count(v => v.Estado == "pendiente");
         }
-        else
+        else if (_esFuncionario)
+        {
+            var asignaciones = (await FuncionarioService.GetMisAsignacionesAsync()).ToList();
+            var dispositivos = (await FuncionarioService.GetMisDispositivosAsync()).ToList();
+            var asignacionesPorEvento = asignaciones
+                .GroupBy(a => a.IdEvento)
+                .ToDictionary(g => g.Key, g => g.OrderBy(a => a.IdSector).ToList());
+
+            _eventosAsignados = asignacionesPorEvento.Count;
+            _sectoresAsignados = asignaciones.Count;
+            _dispositivosAutorizados = dispositivos.Count;
+            _sectoresPorEvento = asignacionesPorEvento.ToDictionary(
+                g => g.Key,
+                g => g.Value.Select(a => a.IdSector).Distinct().OrderBy(s => s).ToList());
+
+            foreach (var (idEvento, lista) in asignacionesPorEvento)
+            {
+                var idFuncionario = lista.First().IdFuncionario;
+                var cobertura = (await FuncionarioService
+                    .GetCoberturaSectoresAsync(idFuncionario, idEvento)).ToList();
+
+                _sectoresPendientes += cobertura.Count(c => !c.Validado);
+            }
+
+            _proximasAsignaciones = asignacionesPorEvento.Values
+                .Select(lista => lista.First())
+                .Where(a => a.FechaHora > ahora)
+                .OrderBy(a => a.FechaHora)
+                .Take(5)
+                .ToList();
+        }
+        else if (_esGeneral)
         {
             var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId is not null)
             {
+                _proximosEventos = todosEventos
+                    .Where(e => e.FechaHora > ahora)
+                    .OrderBy(e => e.FechaHora)
+                    .Take(5)
+                    .ToList();
+
                 var entradas = (await VentaService.GetEntradasByUsuarioAsync(userId)).ToList();
                 var ventas = (await VentaService.GetVentasByUsuarioAsync(userId)).ToList();
                 _totalMisEntradas = entradas.Count;
