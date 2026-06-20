@@ -94,7 +94,7 @@ public sealed class FuncionarioServiceTests
         var idEntrada = Guid.NewGuid();
         _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
         _dao.GetEntradaParaValidarAsync(idTokenQr)
-            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, true, 7, 3, "A"));
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, true, 7, 3, "A", "paga"));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
@@ -111,13 +111,32 @@ public sealed class FuncionarioServiceTests
         var idEntrada = Guid.NewGuid();
         _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
         _dao.GetEntradaParaValidarAsync(idTokenQr)
-            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A"));
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A", "paga"));
         _dao.ExisteAsignacionAsync("funcionario-1", 7, 3, "A").Returns(false);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
 
         Assert.Equal("No tenés asignación para el sector de esta entrada en este evento.", exception.Message);
+        await _dao.DidNotReceiveWithAnyArgs().ValidarEntradaAsync(default, default!, default!);
+    }
+
+    [Theory]
+    [InlineData("pendiente")]
+    [InlineData("confirmada")]
+    public async Task ValidarEntrada_con_venta_no_paga_rechaza_la_operacion(string estadoVenta)
+    {
+        var idTokenQr = Guid.NewGuid();
+        var idEntrada = Guid.NewGuid();
+        _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
+        _dao.GetEntradaParaValidarAsync(idTokenQr)
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A", estadoVenta));
+        _dao.ExisteAsignacionAsync("funcionario-1", 7, 3, "A").Returns(true);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012"));
+
+        Assert.Equal("La venta de esta entrada no está marcada como paga.", exception.Message);
         await _dao.DidNotReceiveWithAnyArgs().ValidarEntradaAsync(default, default!, default!);
     }
 
@@ -128,7 +147,7 @@ public sealed class FuncionarioServiceTests
         var idEntrada = Guid.NewGuid();
         _dao.IsDispositivoDelFuncionarioAsync("SCANNER-012", "funcionario-1").Returns(true);
         _dao.GetEntradaParaValidarAsync(idTokenQr)
-            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A"));
+            .Returns(new EntradaValidacionInfo(idTokenQr, idEntrada, false, 7, 3, "A", "paga"));
         _dao.ExisteAsignacionAsync("funcionario-1", 7, 3, "A").Returns(true);
 
         await _service.ValidarEntradaAsync(idTokenQr, "SCANNER-012");

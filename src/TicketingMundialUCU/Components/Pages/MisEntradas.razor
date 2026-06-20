@@ -74,6 +74,10 @@ else
                 {
                     <code class="ticket-code">@idTokenQr.ToString().ToUpperInvariant()</code>
                 }
+                else if (entrada.EstadoVenta != "paga")
+                {
+                    <span class="text-muted small">Disponible al pagar</span>
+                }
                 else
                 {
                     <span class="text-muted small">Sin token QR activo</span>

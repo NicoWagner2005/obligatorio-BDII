@@ -25,7 +25,8 @@ public record EntradaValidacionInfo(
     bool Consumida,
     int IdEvento,
     int IdEstadio,
-    string IdSector);
+    string IdSector,
+    string EstadoVenta);
 
 public record CoberturasSector(string IdSector, bool Validado);
 

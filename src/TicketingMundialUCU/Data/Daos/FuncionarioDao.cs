@@ -7,6 +7,7 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
+    private sealed record EntradaBloqueada(Guid IdEntrada, string EstadoVenta);
 
     public async Task<IEnumerable<FuncionarioInfo>> GetAllFuncionariosAsync()
     {
@@ -249,11 +250,13 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                 )                          AS "Consumida",
                 dv.id_evento               AS "IdEvento",
                 dv.id_estadio              AS "IdEstadio",
-                dv.id_sector               AS "IdSector"
+                dv.id_sector               AS "IdSector",
+                v.estado                   AS "EstadoVenta"
             FROM entradas en
             JOIN detalle_venta dv
                 ON en.id_venta = dv.id_venta
                AND en.nro_linea_detalle_venta = dv.nro_linea
+            JOIN ventas v ON v.id_venta = en.id_venta
             JOIN tokens_qr tq ON tq.id_entrada = en.id_entrada
             WHERE tq.id_token_qr = @IdTokenQr
               AND tq.fecha_expiracion > LOCALTIMESTAMP
@@ -267,14 +270,17 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        var entradaBloqueada = await connection.QuerySingleOrDefaultAsync<Guid?>(
+        var entradaBloqueada = await connection.QuerySingleOrDefaultAsync<EntradaBloqueada>(
             """
-            SELECT en.id_entrada
+            SELECT
+                en.id_entrada AS "IdEntrada",
+                v.estado      AS "EstadoVenta"
             FROM tokens_qr tq
             JOIN entradas en ON en.id_entrada = tq.id_entrada
+            JOIN ventas v ON v.id_venta = en.id_venta
             WHERE tq.id_token_qr = @IdTokenQr
               AND tq.fecha_expiracion > LOCALTIMESTAMP
-            FOR UPDATE OF tq, en
+            FOR UPDATE OF tq, en, v
             """,
             new { IdTokenQr = idTokenQr },
             transaction);
@@ -282,7 +288,10 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         if (entradaBloqueada is null)
             throw new InvalidOperationException("No se encontró un token QR válido.");
 
-        var idEntrada = entradaBloqueada.Value;
+        var idEntrada = entradaBloqueada.IdEntrada;
+
+        if (entradaBloqueada.EstadoVenta != "paga")
+            throw new InvalidOperationException("La venta de esta entrada no está marcada como paga.");
 
         var yaValidada = await connection.ExecuteScalarAsync<bool>(
             """

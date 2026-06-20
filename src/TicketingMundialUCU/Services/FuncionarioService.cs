@@ -86,6 +86,9 @@ public class FuncionarioService(
         if (!await dao.ExisteAsignacionAsync(idFuncionario, entrada.IdEvento, entrada.IdEstadio, entrada.IdSector))
             throw new InvalidOperationException("No tenés asignación para el sector de esta entrada en este evento.");
 
+        if (entrada.EstadoVenta != "paga")
+            throw new InvalidOperationException("La venta de esta entrada no está marcada como paga.");
+
         await dao.ValidarEntradaAsync(idTokenQr, idFuncionario, idDispositivo);
     }
 

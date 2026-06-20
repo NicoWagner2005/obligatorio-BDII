@@ -26,7 +26,10 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
     private const string EntradaDetalleSelectFrom = """
         SELECT
             en.id_entrada                       AS "IdEntrada",
-            tq.id_token_qr                      AS "IdTokenQr",
+            CASE
+                WHEN v.estado = 'paga' THEN tq.id_token_qr
+                ELSE NULL
+            END                                 AS "IdTokenQr",
             en.id_venta                         AS "IdVenta",
             en.nro_linea_detalle_venta          AS "NroLineaDetalleVenta",
             dv.id_evento                        AS "IdEvento",
