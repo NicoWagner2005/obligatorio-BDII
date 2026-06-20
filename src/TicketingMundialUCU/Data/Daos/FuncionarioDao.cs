@@ -244,7 +244,11 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             """
             SELECT
                 en.id_entrada              AS "IdEntrada",
-                en.consumida               AS "Consumida",
+                EXISTS (
+                    SELECT 1
+                    FROM validaciones_acceso va
+                    WHERE va.id_entrada = en.id_entrada
+                )                          AS "Consumida",
                 dv.id_evento               AS "IdEvento",
                 dv.id_estadio              AS "IdEstadio",
                 dv.id_sector               AS "IdSector"
@@ -263,10 +267,32 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
-        await connection.ExecuteAsync(
-            """UPDATE entradas SET consumida = TRUE WHERE id_entrada = @IdEntrada""",
+        var entradaBloqueada = await connection.QuerySingleOrDefaultAsync<Guid?>(
+            """
+            SELECT id_entrada
+            FROM entradas
+            WHERE id_entrada = @IdEntrada
+            FOR UPDATE
+            """,
             new { IdEntrada = idEntrada },
             transaction);
+
+        if (entradaBloqueada is null)
+            throw new InvalidOperationException("No se encontró la entrada.");
+
+        var yaValidada = await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM validaciones_acceso
+                WHERE id_entrada = @IdEntrada
+            )
+            """,
+            new { IdEntrada = idEntrada },
+            transaction);
+
+        if (yaValidada)
+            throw new InvalidOperationException("La entrada ya fue validada anteriormente.");
 
         await connection.ExecuteAsync(
             """

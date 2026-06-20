@@ -332,7 +332,9 @@ else
                 entradas.Select(e => e.IdEntrada));
 
         _misEntradas = entradas
-            .Where(e => transferenciasPorEntrada.GetValueOrDefault(e.IdEntrada, 0) < TransferenciaDao.MaxTransferenciasPorEntrada)
+            .Where(e =>
+                !e.Consumida &&
+                transferenciasPorEntrada.GetValueOrDefault(e.IdEntrada, 0) < TransferenciaDao.MaxTransferenciasPorEntrada)
             .ToList();
         _historial = (await TransferenciaService.GetTransferenciasByUsuarioAsync(_userId)).ToList();
         _pendientesRecibidas = _historial

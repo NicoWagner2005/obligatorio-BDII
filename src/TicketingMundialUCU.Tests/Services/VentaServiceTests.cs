@@ -121,7 +121,8 @@ public sealed class VentaServiceTests
                 "Visitante",
                 "A",
                 100m,
-                "paga")
+                "paga",
+                false)
         };
         _entradaDao.GetEntradasByUsuarioAsync("usuario-1").Returns(entradas);
 

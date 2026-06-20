@@ -35,7 +35,11 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
             dv.id_sector                        AS "IdSector",
             (dv.subtotal / dv.cantidad)         AS "PrecioUnitario",
             v.estado                            AS "EstadoVenta",
-            en.consumida                        AS "Consumida"
+            EXISTS (
+                SELECT 1
+                FROM validaciones_acceso va
+                WHERE va.id_entrada = en.id_entrada
+            )                                   AS "Consumida"
         FROM entradas en
         JOIN detalle_venta dv
             ON en.id_venta = dv.id_venta

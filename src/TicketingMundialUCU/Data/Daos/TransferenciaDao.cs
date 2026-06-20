@@ -111,6 +111,8 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             throw new InvalidOperationException(
                 "La entrada seleccionada no pertenece actualmente a tu usuario.");
 
+        await ValidarEntradaNoValidadaAsync(connection, transaction, idEntrada);
+
         await ValidarLimiteTransferenciasAsync(connection, transaction, idEntrada);
 
         var tienePendiente = await connection.ExecuteScalarAsync<bool>(
@@ -234,6 +236,8 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
             throw new InvalidOperationException(
                 "La entrada ya no pertenece al usuario que solicitó la transferencia.");
 
+        await ValidarEntradaNoValidadaAsync(connection, transaction, transferencia.IdEntrada);
+
         await ValidarLimiteTransferenciasAsync(connection, transaction, transferencia.IdEntrada);
 
         await connection.ExecuteAsync(
@@ -353,6 +357,27 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
 
         if (transferencia.Estado != "pendiente")
             throw new InvalidOperationException("Esta solicitud ya fue respondida.");
+    }
+
+    private static async Task ValidarEntradaNoValidadaAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid idEntrada)
+    {
+        var yaValidada = await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM validaciones_acceso
+                WHERE id_entrada = @IdEntrada
+            )
+            """,
+            new { IdEntrada = idEntrada },
+            transaction);
+
+        if (yaValidada)
+            throw new InvalidOperationException(
+                "No se puede transferir una entrada ya consumida o validada.");
     }
 
     private sealed class TransferenciaRow
