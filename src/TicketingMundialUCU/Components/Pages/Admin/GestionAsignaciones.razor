@@ -46,49 +46,6 @@
     </div>
 </div>
 
-<!-- Todas las asignaciones (siempre visible) -->
-<div class="card mb-4">
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <h6 class="mb-0">Funcionarios asignados a sectores</h6>
-        <span class="badge bg-secondary">@_todasAsignaciones.Count</span>
-    </div>
-    <div class="card-body p-0">
-        @if (!_todasAsignaciones.Any())
-        {
-            <div class="text-center text-muted py-5">
-                <p class="mb-0">No hay asignaciones registradas.</p>
-            </div>
-        }
-        else
-        {
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Legajo</th>
-                        <th>Email</th>
-                        <th>Evento</th>
-                        <th>Estadio</th>
-                        <th>Sector</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var a in _todasAsignaciones)
-                    {
-                        var email = _funcionarios.FirstOrDefault(f => f.UsuarioId == a.IdFuncionario)?.Email ?? "—";
-                        <tr>
-                            <td class="fw-semibold">@a.NroLegajo</td>
-                            <td>@email</td>
-                            <td>@(a.EquipoLocal ?? "?") vs @(a.EquipoVisitante ?? "?") · @a.FechaHora.ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>@a.NombreEstadio</td>
-                            <td><span class="sector-badge sector-@a.IdSector">@a.IdSector</span></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-    </div>
-</div>
-
 @if (_eventoSeleccionado is not null)
 {
     var sectoresHabilitados = _sectoresHabilitados.GetValueOrDefault(_eventoSeleccionado.IdEvento, []);
@@ -221,6 +178,49 @@
         </div>
     }
 }
+
+<!-- Todas las asignaciones (siempre visible) -->
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">Funcionarios asignados a sectores</h6>
+        <span class="badge bg-secondary">@_todasAsignaciones.Count</span>
+    </div>
+    <div class="card-body p-0">
+        @if (!_todasAsignaciones.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <p class="mb-0">No hay asignaciones registradas.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Legajo</th>
+                        <th>Email</th>
+                        <th>Evento</th>
+                        <th>Estadio</th>
+                        <th>Sector</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _todasAsignaciones)
+                    {
+                        var email = _funcionarios.FirstOrDefault(f => f.UsuarioId == a.IdFuncionario)?.Email ?? "—";
+                        <tr>
+                            <td class="fw-semibold">@a.NroLegajo</td>
+                            <td>@email</td>
+                            <td>@(a.EquipoLocal ?? "?") vs @(a.EquipoVisitante ?? "?") · @a.FechaHora.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@a.NombreEstadio</td>
+                            <td><span class="sector-badge sector-@a.IdSector">@a.IdSector</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
 
 @code {
     private List<EventoDetalle> _eventos = [];
