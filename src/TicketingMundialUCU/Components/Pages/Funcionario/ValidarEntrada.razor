@@ -1,9 +1,12 @@
 @page "/funcionario/validar"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using TicketingMundialUCU.Data.Daos
 @using TicketingMundialUCU.Services
 @attribute [Authorize(Roles = "funcionario")]
+@implements IAsyncDisposable
 @inject FuncionarioService FuncionarioService
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Validar entrada</PageTitle>
@@ -21,7 +24,7 @@
 }
 else
 {
-    <div class="card" style="max-width:560px">
+    <div class="card validar-card">
         <div class="card-body">
 
             <div class="mb-3">
@@ -33,6 +36,42 @@ else
                         <option value="@d.IdDispositivo">@d.IdDispositivo</option>
                     }
                 </select>
+            </div>
+
+            <div class="qr-scanner-panel mb-3">
+                <div class="qr-video-shell">
+                    <video @ref="_videoElement"
+                           class="qr-video"
+                           muted
+                           playsinline></video>
+                    @if (!_scannerActivo)
+                    {
+                        <div class="qr-video-placeholder">
+                            <div class="qr-video-placeholder-icon">▣</div>
+                            <div>Camara detenida</div>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button type="button"
+                            class="btn btn-primary"
+                            @onclick="IniciarScannerAsync"
+                            disabled="@(!PuedeIniciarScanner)">
+                        @(_scannerActivo ? "Escaneando..." : "Escanear QR")
+                    </button>
+                    <button type="button"
+                            class="btn btn-outline-primary"
+                            @onclick="DetenerScannerAsync"
+                            disabled="@(!_scannerActivo)">
+                        Detener camara
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_scannerStatusMessage))
+                {
+                    <div class="form-text mt-2">@_scannerStatusMessage</div>
+                }
             </div>
 
             <div class="mb-3">
@@ -73,11 +112,87 @@ else
     private string _codigoTokenTexto = string.Empty;
     private bool _validando;
     private bool _validacionExitosa;
+    private bool _scannerActivo;
+    private string? _scannerStatusMessage;
     private string? _errorMessage;
+    private ElementReference _videoElement;
+    private DotNetObjectReference<ValidarEntrada>? _dotNetObjectReference;
+
+    private bool PuedeIniciarScanner =>
+        !_scannerActivo &&
+        !_validando &&
+        !string.IsNullOrEmpty(_idDispositivoSeleccionado);
 
     protected override async Task OnInitializedAsync()
     {
         _dispositivos = (await FuncionarioService.GetMisDispositivosAsync()).ToList();
+    }
+
+    private async Task IniciarScannerAsync()
+    {
+        _errorMessage = null;
+        _validacionExitosa = false;
+        _scannerStatusMessage = null;
+
+        if (string.IsNullOrEmpty(_idDispositivoSeleccionado))
+        {
+            _scannerStatusMessage = "Seleccioná un dispositivo autorizado antes de escanear.";
+            return;
+        }
+
+        _dotNetObjectReference ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            _scannerActivo = await JS.InvokeAsync<bool>(
+                "ticketQrScanner.start",
+                _videoElement,
+                _dotNetObjectReference);
+
+            if (_scannerActivo)
+                _scannerStatusMessage = "Apuntá la camara al codigo QR de la entrada.";
+        }
+        catch (JSException ex)
+        {
+            _scannerActivo = false;
+            _scannerStatusMessage = LimpiarMensajeJs(ex.Message);
+        }
+    }
+
+    private async Task DetenerScannerAsync()
+    {
+        await JS.InvokeVoidAsync("ticketQrScanner.stop");
+        _scannerActivo = false;
+        _scannerStatusMessage = null;
+    }
+
+    [JSInvokable]
+    public async Task OnQrDetected(string payload)
+    {
+        if (_validando)
+            return;
+
+        await DetenerScannerAsync();
+
+        if (!Guid.TryParse(payload.Trim(), out var codigoToken))
+        {
+            _errorMessage = "El QR escaneado no contiene un token válido.";
+            _scannerStatusMessage = "Podés volver a escanear otro codigo.";
+            StateHasChanged();
+            return;
+        }
+
+        _codigoTokenTexto = codigoToken.ToString("D").ToUpperInvariant();
+        await ValidarAsync();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnScannerError(string message)
+    {
+        _scannerActivo = false;
+        _scannerStatusMessage = message;
+        StateHasChanged();
     }
 
     private async Task ValidarAsync()
@@ -97,6 +212,7 @@ else
             await FuncionarioService.ValidarEntradaAsync(codigoToken, _idDispositivoSeleccionado);
             _validacionExitosa = true;
             _codigoTokenTexto = string.Empty;
+            _scannerStatusMessage = null;
         }
         catch (Exception ex)
         {
@@ -104,4 +220,70 @@ else
         }
         finally { _validando = false; }
     }
+
+    private static string LimpiarMensajeJs(string message)
+    {
+        var lineBreakIndex = message.IndexOf('\n');
+        return lineBreakIndex >= 0 ? message[..lineBreakIndex] : message;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("ticketQrScanner.stop");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _dotNetObjectReference?.Dispose();
+    }
 }
+
+<style>
+    .validar-card {
+        max-width: 560px;
+    }
+
+    .qr-scanner-panel {
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: .875rem;
+        background: #f8fafc;
+    }
+
+    .qr-video-shell {
+        position: relative;
+        aspect-ratio: 4 / 3;
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        overflow: hidden;
+        background: #0f172a;
+    }
+
+    .qr-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .qr-video-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        color: #cbd5e1;
+        font-size: .875rem;
+        background: #0f172a;
+    }
+
+    .qr-video-placeholder-icon {
+        font-size: 2rem;
+        line-height: 1;
+    }
+</style>
