@@ -60,6 +60,7 @@ builder.Services.AddScoped<VentaService>();
 builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<TransferenciaService>();
 builder.Services.AddScoped<TokenQrService>();
+builder.Services.AddScoped<QrCodeService>();
 builder.Services.Configure<TokenQrRefreshOptions>(
     builder.Configuration.GetSection("TokenQrRefresh"));
 builder.Services.AddSingleton(TimeProvider.System);

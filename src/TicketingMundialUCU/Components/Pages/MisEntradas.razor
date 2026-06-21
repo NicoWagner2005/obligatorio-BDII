@@ -6,6 +6,8 @@
 @attribute [Authorize(Roles = "general")]
 @implements IAsyncDisposable
 @inject VentaService VentaService
+@inject TokenQrService TokenQrService
+@inject QrCodeService QrCodeService
 @inject AuthenticationStateProvider AuthProvider
 @rendermode InteractiveServer
 
@@ -48,8 +50,11 @@ else
             "confirmada" => "ticket-confirmed",
             _            => "ticket-pending",
         };
+        var puedeMostrarQr = PuedeMostrarQr(entrada);
+        var estaSeleccionada = _entradaQrSeleccionadaId == entrada.IdEntrada;
 
-        <div class="ticket-card @ticketClass mb-2">
+        <div class="ticket-card @ticketClass @(puedeMostrarQr ? "ticket-clickable" : "") mb-2"
+             @onclick="() => ToggleQrAsync(entrada)">
             <div class="ticket-header">
                 <div class="d-flex align-items-start justify-content-between gap-2">
                     <div>
@@ -71,9 +76,15 @@ else
                     <span>Sector <strong>@entrada.IdSector</strong></span>
                     <span class="status-pill @estadoPill">@entrada.EstadoVenta</span>
                 </div>
-                @if (entrada.CodigoToken is Guid codigoToken)
+                @if (entrada.CodigoToken is not null)
                 {
-                    <code class="ticket-code">@codigoToken.ToString().ToUpperInvariant()</code>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            disabled="@_cargandoQr"
+                            @onclick:stopPropagation="true"
+                            @onclick="() => ToggleQrAsync(entrada)">
+                        @(estaSeleccionada ? "Ocultar QR" : "Ver QR")
+                    </button>
                 }
                 else if (entrada.EstadoVenta != "paga")
                 {
@@ -84,6 +95,45 @@ else
                     <span class="text-muted small">Sin token QR activo</span>
                 }
             </div>
+
+            @if (estaSeleccionada)
+            {
+                <div class="ticket-qr-panel" @onclick:stopPropagation="true">
+                    @if (_cargandoQr)
+                    {
+                        <p class="text-muted small mb-0">Cargando QR…</p>
+                    }
+                    else if (!string.IsNullOrEmpty(_qrErrorMessage))
+                    {
+                        <div class="alert alert-warning mb-0">
+                            @_qrErrorMessage
+                        </div>
+                    }
+                    else if (_qrActivo is not null && !string.IsNullOrEmpty(_qrDataUri))
+                    {
+                        <div class="ticket-qr-content">
+                            <img class="ticket-qr-image"
+                                 src="@_qrDataUri"
+                                 alt="Código QR de entrada" />
+                            <div class="ticket-qr-detail">
+                                <div class="fw-semibold mb-1">Código QR activo</div>
+                                <div class="text-muted small mb-2">
+                                    Vence el @_qrActivo.FechaExpiracion.ToString("dd MMM yyyy · HH:mm:ss") hs
+                                </div>
+                                <code class="ticket-code ticket-qr-token">
+                                    @_qrActivo.CodigoToken.ToString("D").ToUpperInvariant()
+                                </code>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary mt-3"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="CerrarQr">
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
         </div>
     }
 }
@@ -91,7 +141,12 @@ else
 @code {
     private List<EntradaDetalle> _entradas = [];
     private bool _cargando = true;
+    private bool _cargandoQr;
     private string? _userId;
+    private Guid? _entradaQrSeleccionadaId;
+    private TokenQrActivo? _qrActivo;
+    private string? _qrDataUri;
+    private string? _qrErrorMessage;
     private CancellationTokenSource? _refreshCancellation;
     private Task? _refreshTask;
 
@@ -111,6 +166,83 @@ else
     {
         if (_userId is not null)
             _entradas = (await VentaService.GetEntradasByUsuarioAsync(_userId)).ToList();
+
+        await SincronizarQrSeleccionadoAsync();
+    }
+
+    private static bool PuedeMostrarQr(EntradaDetalle entrada) =>
+        entrada.EstadoVenta == "paga" &&
+        !entrada.Consumida &&
+        entrada.CodigoToken is not null;
+
+    private async Task ToggleQrAsync(EntradaDetalle entrada)
+    {
+        if (!PuedeMostrarQr(entrada))
+            return;
+
+        if (_entradaQrSeleccionadaId == entrada.IdEntrada)
+        {
+            CerrarQr();
+            return;
+        }
+
+        _entradaQrSeleccionadaId = entrada.IdEntrada;
+        await CargarQrActivoAsync(entrada.IdEntrada);
+    }
+
+    private async Task SincronizarQrSeleccionadoAsync()
+    {
+        if (_entradaQrSeleccionadaId is not Guid idEntrada)
+            return;
+
+        var entrada = _entradas.FirstOrDefault(e => e.IdEntrada == idEntrada);
+        if (entrada is null || !PuedeMostrarQr(entrada))
+        {
+            CerrarQr();
+            return;
+        }
+
+        await CargarQrActivoAsync(idEntrada);
+    }
+
+    private async Task CargarQrActivoAsync(Guid idEntrada)
+    {
+        if (_userId is null)
+            return;
+
+        _cargandoQr = true;
+        _qrErrorMessage = null;
+        _qrActivo = null;
+        _qrDataUri = null;
+
+        try
+        {
+            _qrActivo = await TokenQrService.GetTokenActivoByEntradaAsync(_userId, idEntrada);
+            if (_qrActivo is null)
+            {
+                _qrErrorMessage = "No hay un token QR activo para esta entrada.";
+                return;
+            }
+
+            _qrDataUri = QrCodeService.GenerateTokenQrDataUri(_qrActivo.CodigoToken);
+        }
+        catch (Exception ex)
+        {
+            _qrErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _cargandoQr = false;
+        }
+    }
+
+    private void CerrarQr()
+    {
+        _entradaQrSeleccionadaId = null;
+        _qrActivo = null;
+        _qrDataUri = null;
+        _qrErrorMessage = null;
+        _cargandoQr = false;
     }
 
     private async Task RefrescarEntradasPeriodicamenteAsync(CancellationToken cancellationToken)
@@ -142,3 +274,48 @@ else
         _refreshCancellation.Dispose();
     }
 }
+
+<style>
+    .ticket-clickable {
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .ticket-clickable:hover {
+        border-color: var(--brand);
+        box-shadow: var(--shadow-md);
+    }
+
+    .ticket-qr-panel {
+        padding: 1rem 1.125rem 1.125rem 1.375rem;
+        border-top: 1px dashed var(--border);
+        background: #f8fafc;
+    }
+
+    .ticket-qr-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .ticket-qr-image {
+        width: 10rem;
+        height: 10rem;
+        padding: .5rem;
+        border: 1px solid var(--border);
+        border-radius: var(--r);
+        background: #fff;
+    }
+
+    .ticket-qr-detail {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .ticket-qr-token {
+        display: inline-block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+</style>
