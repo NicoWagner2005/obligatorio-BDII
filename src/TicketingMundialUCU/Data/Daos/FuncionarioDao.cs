@@ -234,13 +234,13 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         return deleted == 1;
     }
 
-    public async Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid idTokenQr)
+    public async Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid codigoToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QuerySingleOrDefaultAsync<EntradaValidacionInfo>(
             """
             SELECT
-                tq.id_token_qr             AS "IdTokenQr",
+                tq.codigo_token            AS "CodigoToken",
                 en.id_entrada              AS "IdEntrada",
                 EXISTS (
                     SELECT 1
@@ -258,13 +258,14 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
                AND en.nro_linea_detalle_venta = dv.nro_linea
             JOIN ventas v ON v.id_venta = en.id_venta
             JOIN tokens_qr tq ON tq.id_entrada = en.id_entrada
-            WHERE tq.id_token_qr = @IdTokenQr
+            WHERE tq.codigo_token = @CodigoToken
+              AND tq.id_dispositivo IS NULL
               AND tq.fecha_expiracion > LOCALTIMESTAMP
             """,
-            new { IdTokenQr = idTokenQr });
+            new { CodigoToken = codigoToken });
     }
 
-    public async Task ValidarEntradaAsync(Guid idTokenQr, string idFuncionario, string idDispositivo)
+    public async Task ValidarEntradaAsync(Guid codigoToken, string idFuncionario, string idDispositivo)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -278,11 +279,12 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             FROM tokens_qr tq
             JOIN entradas en ON en.id_entrada = tq.id_entrada
             JOIN ventas v ON v.id_venta = en.id_venta
-            WHERE tq.id_token_qr = @IdTokenQr
+            WHERE tq.codigo_token = @CodigoToken
+              AND tq.id_dispositivo IS NULL
               AND tq.fecha_expiracion > LOCALTIMESTAMP
             FOR UPDATE OF tq, en, v
             """,
-            new { IdTokenQr = idTokenQr },
+            new { CodigoToken = codigoToken },
             transaction);
 
         if (entradaBloqueada is null)
@@ -312,9 +314,10 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
             """
             UPDATE tokens_qr
             SET id_dispositivo = @IdDispositivo
-            WHERE id_token_qr = @IdTokenQr
+            WHERE codigo_token = @CodigoToken
+              AND id_dispositivo IS NULL
             """,
-            new { IdDispositivo = idDispositivo, IdTokenQr = idTokenQr },
+            new { IdDispositivo = idDispositivo, CodigoToken = codigoToken },
             transaction);
 
         await transaction.CommitAsync();

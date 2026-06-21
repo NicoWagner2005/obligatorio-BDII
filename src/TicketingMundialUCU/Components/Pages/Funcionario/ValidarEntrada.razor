@@ -39,13 +39,13 @@ else
                 <label class="form-label fw-semibold">Token QR</label>
                 <input class="form-control font-monospace"
                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                       @bind="_idTokenQrTexto"
+                       @bind="_codigoTokenTexto"
                        @bind:event="oninput" />
             </div>
 
             <button class="btn btn-primary"
                     @onclick="ValidarAsync"
-                    disabled="@(string.IsNullOrEmpty(_idDispositivoSeleccionado) || string.IsNullOrWhiteSpace(_idTokenQrTexto) || _validando)">
+                    disabled="@(string.IsNullOrEmpty(_idDispositivoSeleccionado) || string.IsNullOrWhiteSpace(_codigoTokenTexto) || _validando)">
                 @(_validando ? "Validando…" : "Validar entrada")
             </button>
         </div>
@@ -70,7 +70,7 @@ else
 @code {
     private List<DispositivoAutorizado> _dispositivos = [];
     private string _idDispositivoSeleccionado = string.Empty;
-    private string _idTokenQrTexto = string.Empty;
+    private string _codigoTokenTexto = string.Empty;
     private bool _validando;
     private bool _validacionExitosa;
     private string? _errorMessage;
@@ -85,7 +85,7 @@ else
         _errorMessage = null;
         _validacionExitosa = false;
 
-        if (!Guid.TryParse(_idTokenQrTexto.Trim(), out var idTokenQr))
+        if (!Guid.TryParse(_codigoTokenTexto.Trim(), out var codigoToken))
         {
             _errorMessage = "El token QR no tiene un formato válido.";
             return;
@@ -94,9 +94,9 @@ else
         _validando = true;
         try
         {
-            await FuncionarioService.ValidarEntradaAsync(idTokenQr, _idDispositivoSeleccionado);
+            await FuncionarioService.ValidarEntradaAsync(codigoToken, _idDispositivoSeleccionado);
             _validacionExitosa = true;
-            _idTokenQrTexto = string.Empty;
+            _codigoTokenTexto = string.Empty;
         }
         catch (Exception ex)
         {

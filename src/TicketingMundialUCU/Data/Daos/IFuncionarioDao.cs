@@ -20,7 +20,7 @@ public record AsignacionSector(
     string? EquipoVisitante);
 
 public record EntradaValidacionInfo(
-    Guid IdTokenQr,
+    Guid CodigoToken,
     Guid IdEntrada,
     bool Consumida,
     int IdEvento,
@@ -51,8 +51,8 @@ public interface IFuncionarioDao
     Task<bool> DeleteAsignacionAsync(string idFuncionario, int idEvento, int idEstadio, string idSector);
 
     // Validación
-    Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid idTokenQr);
-    Task ValidarEntradaAsync(Guid idTokenQr, string idFuncionario, string idDispositivo);
+    Task<EntradaValidacionInfo?> GetEntradaParaValidarAsync(Guid codigoToken);
+    Task ValidarEntradaAsync(Guid codigoToken, string idFuncionario, string idDispositivo);
 
     // Cobertura RF-77
     Task<IEnumerable<CoberturasSector>> GetCoberturaSectoresAsync(string idFuncionario, int idEvento);

@@ -71,9 +71,9 @@ else
                     <span>Sector <strong>@entrada.IdSector</strong></span>
                     <span class="status-pill @estadoPill">@entrada.EstadoVenta</span>
                 </div>
-                @if (entrada.IdTokenQr is Guid idTokenQr)
+                @if (entrada.CodigoToken is Guid codigoToken)
                 {
-                    <code class="ticket-code">@idTokenQr.ToString().ToUpperInvariant()</code>
+                    <code class="ticket-code">@codigoToken.ToString().ToUpperInvariant()</code>
                 }
                 else if (entrada.EstadoVenta != "paga")
                 {

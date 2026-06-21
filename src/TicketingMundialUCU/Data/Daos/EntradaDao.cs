@@ -5,7 +5,7 @@ namespace TicketingMundialUCU.Data.Daos;
 
 public record EntradaDetalle(
     Guid IdEntrada,
-    Guid? IdTokenQr,
+    Guid? CodigoToken,
     int IdVenta,
     int NroLineaDetalleVenta,
     int IdEvento,
@@ -27,9 +27,9 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
         SELECT
             en.id_entrada                       AS "IdEntrada",
             CASE
-                WHEN v.estado = 'paga' THEN tq.id_token_qr
+                WHEN v.estado = 'paga' THEN tq.codigo_token
                 ELSE NULL
-            END                                 AS "IdTokenQr",
+            END                                 AS "CodigoToken",
             en.id_venta                         AS "IdVenta",
             en.nro_linea_detalle_venta          AS "NroLineaDetalleVenta",
             dv.id_evento                        AS "IdEvento",
@@ -60,12 +60,12 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
             ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
         LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
         LEFT JOIN LATERAL (
-            SELECT id_token_qr
+            SELECT codigo_token
             FROM tokens_qr
             WHERE id_entrada = en.id_entrada
               AND id_dispositivo IS NULL
               AND fecha_expiracion > LOCALTIMESTAMP
-            ORDER BY fecha_expiracion DESC, id_token_qr
+            ORDER BY fecha_expiracion DESC, codigo_token
             LIMIT 1
         ) tq ON TRUE
         """;

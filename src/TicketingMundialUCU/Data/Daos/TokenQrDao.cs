@@ -45,18 +45,18 @@ public class TokenQrDao(IConfiguration configuration) : ITokenQrDao
         var tokensNuevos = entradas
             .Select(idEntrada => new
             {
-                IdTokenQr = Guid.NewGuid(),
+                CodigoToken = Guid.NewGuid(),
                 IdEntrada = idEntrada,
             })
             .ToList();
 
         await connection.ExecuteAsync(
             """
-            INSERT INTO tokens_qr (id_token_qr, id_entrada, fecha_expiracion, id_dispositivo)
-            VALUES (@IdTokenQr, @IdEntrada, LOCALTIMESTAMP + interval '30 seconds', NULL)
+            INSERT INTO tokens_qr (codigo_token, id_entrada, fecha_expiracion, id_dispositivo)
+            VALUES (@CodigoToken, @IdEntrada, LOCALTIMESTAMP + interval '30 seconds', NULL)
             ON CONFLICT (id_entrada) WHERE id_dispositivo IS NULL
             DO UPDATE SET
-                id_token_qr = EXCLUDED.id_token_qr,
+                codigo_token = EXCLUDED.codigo_token,
                 fecha_expiracion = EXCLUDED.fecha_expiracion
             """,
             tokensNuevos,
@@ -73,7 +73,7 @@ public class TokenQrDao(IConfiguration configuration) : ITokenQrDao
             """
             SELECT
                 tq.id_entrada       AS "IdEntrada",
-                tq.id_token_qr      AS "IdTokenQr",
+                tq.codigo_token     AS "CodigoToken",
                 tq.fecha_expiracion AS "FechaExpiracion"
             FROM tokens_qr tq
             JOIN entradas en ON en.id_entrada = tq.id_entrada
@@ -83,7 +83,7 @@ public class TokenQrDao(IConfiguration configuration) : ITokenQrDao
               AND v.estado = 'paga'
               AND tq.id_dispositivo IS NULL
               AND tq.fecha_expiracion > LOCALTIMESTAMP
-            ORDER BY tq.fecha_expiracion DESC, tq.id_token_qr
+            ORDER BY tq.fecha_expiracion DESC, tq.codigo_token
             LIMIT 1
             """,
             new { IdUsuario = idUsuario, IdEntrada = idEntrada });

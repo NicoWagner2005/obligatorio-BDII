@@ -1,6 +1,6 @@
 namespace TicketingMundialUCU.Data.Daos;
 
-public record TokenQrActivo(Guid IdEntrada, Guid IdTokenQr, DateTime FechaExpiracion);
+public record TokenQrActivo(Guid IdEntrada, Guid CodigoToken, DateTime FechaExpiracion);
 
 public interface ITokenQrDao
 {

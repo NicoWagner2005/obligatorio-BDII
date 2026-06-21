@@ -68,7 +68,7 @@ public class FuncionarioService(
 
     // ── Validación ────────────────────────────────────────────────
 
-    public async Task ValidarEntradaAsync(Guid idTokenQr, string idDispositivo)
+    public async Task ValidarEntradaAsync(Guid codigoToken, string idDispositivo)
     {
         var idFuncionario = await userContext.GetRequiredFuncionarioIdAsync();
 
@@ -76,7 +76,7 @@ public class FuncionarioService(
         if (!await dao.IsDispositivoDelFuncionarioAsync(idDispositivo, idFuncionario))
             throw new InvalidOperationException("El dispositivo no está autorizado para este funcionario.");
 
-        var entrada = await dao.GetEntradaParaValidarAsync(idTokenQr)
+        var entrada = await dao.GetEntradaParaValidarAsync(codigoToken)
             ?? throw new InvalidOperationException("No se encontró un token QR válido.");
 
         if (entrada.Consumida)
@@ -89,7 +89,7 @@ public class FuncionarioService(
         if (entrada.EstadoVenta != "paga")
             throw new InvalidOperationException("La venta de esta entrada no está marcada como paga.");
 
-        await dao.ValidarEntradaAsync(idTokenQr, idFuncionario, idDispositivo);
+        await dao.ValidarEntradaAsync(codigoToken, idFuncionario, idDispositivo);
     }
 
     // ── Cobertura RF-77 ───────────────────────────────────────────
