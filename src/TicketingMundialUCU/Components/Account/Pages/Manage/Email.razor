@@ -62,8 +62,14 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    private InputModel? input;
+
     [SupplyParameterFromForm(FormName = "change-email")]
-    private InputModel Input { get; set; } = new();
+    private InputModel Input
+    {
+        get => input ??= new();
+        set => input = value;
+    }
 
     protected override async Task OnInitializedAsync()
     {
