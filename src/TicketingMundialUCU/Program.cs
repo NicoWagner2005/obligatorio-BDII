@@ -49,6 +49,7 @@ builder.Services.AddScoped<IEstadioDao, EstadioDao>();
 builder.Services.AddScoped<IEventoDao, EventoDao>();
 builder.Services.AddScoped<IVentaDao, VentaDao>();
 builder.Services.AddScoped<IEntradaDao, EntradaDao>();
+builder.Services.AddScoped<ITokenQrDao, TokenQrDao>();
 
 builder.Services.AddScoped<IFuncionarioDao, FuncionarioDao>();
 builder.Services.AddScoped<ITransferenciaDao, TransferenciaDao>();
@@ -58,6 +59,11 @@ builder.Services.AddScoped<EventoService>();
 builder.Services.AddScoped<VentaService>();
 builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<TransferenciaService>();
+builder.Services.AddScoped<TokenQrService>();
+builder.Services.Configure<TokenQrRefreshOptions>(
+    builder.Configuration.GetSection("TokenQrRefresh"));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHostedService<TokenQrRefreshWorker>();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 

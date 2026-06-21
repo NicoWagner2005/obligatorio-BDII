@@ -63,6 +63,7 @@ public class EntradaDao(IConfiguration configuration) : IEntradaDao
             SELECT id_token_qr
             FROM tokens_qr
             WHERE id_entrada = en.id_entrada
+              AND id_dispositivo IS NULL
               AND fecha_expiracion > LOCALTIMESTAMP
             ORDER BY fecha_expiracion DESC, id_token_qr
             LIMIT 1

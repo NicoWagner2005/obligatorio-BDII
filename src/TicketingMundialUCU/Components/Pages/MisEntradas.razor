@@ -4,6 +4,7 @@
 @using TicketingMundialUCU.Services
 @using System.Security.Claims
 @attribute [Authorize(Roles = "general")]
+@implements IAsyncDisposable
 @inject VentaService VentaService
 @inject AuthenticationStateProvider AuthProvider
 @rendermode InteractiveServer
@@ -90,14 +91,54 @@ else
 @code {
     private List<EntradaDetalle> _entradas = [];
     private bool _cargando = true;
+    private string? _userId;
+    private CancellationTokenSource? _refreshCancellation;
+    private Task? _refreshTask;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthProvider.GetAuthenticationStateAsync();
-        var userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is not null)
-            _entradas = (await VentaService.GetEntradasByUsuarioAsync(userId)).ToList();
+        _userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await CargarEntradasAsync();
 
         _cargando = false;
+
+        _refreshCancellation = new CancellationTokenSource();
+        _refreshTask = RefrescarEntradasPeriodicamenteAsync(_refreshCancellation.Token);
+    }
+
+    private async Task CargarEntradasAsync()
+    {
+        if (_userId is not null)
+            _entradas = (await VentaService.GetEntradasByUsuarioAsync(_userId)).ToList();
+    }
+
+    private async Task RefrescarEntradasPeriodicamenteAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            await InvokeAsync(async () =>
+            {
+                await CargarEntradasAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_refreshCancellation is null)
+            return;
+
+        await _refreshCancellation.CancelAsync();
+
+        if (_refreshTask is not null)
+        {
+            try { await _refreshTask; }
+            catch (OperationCanceledException) { }
+        }
+
+        _refreshCancellation.Dispose();
     }
 }

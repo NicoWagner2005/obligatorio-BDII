@@ -142,7 +142,6 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
             for (var i = 0; i < item.Cantidad; i++)
             {
                 var idEntrada = Guid.NewGuid();
-                var idTokenQr = Guid.NewGuid();
 
                 await connection.ExecuteAsync(
                     """
@@ -157,23 +156,6 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
                         IdUsuario = idUsuario,
                         IdVenta = idVenta,
                         NroLinea = nroLinea,
-                    },
-                    transaction);
-
-                await connection.ExecuteAsync(
-                    """
-                    INSERT INTO tokens_qr
-                        (id_token_qr, id_entrada, fecha_expiracion, id_dispositivo)
-                    SELECT
-                        @IdTokenQr, @IdEntrada, fecha_hora + interval '4 hours', NULL
-                    FROM eventos
-                    WHERE id_evento = @IdEvento
-                    """,
-                    new
-                    {
-                        IdTokenQr = idTokenQr,
-                        IdEntrada = idEntrada,
-                        item.IdEvento,
                     },
                     transaction);
 
