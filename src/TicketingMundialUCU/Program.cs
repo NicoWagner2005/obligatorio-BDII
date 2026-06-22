@@ -53,6 +53,7 @@ builder.Services.AddScoped<ITokenQrDao, TokenQrDao>();
 
 builder.Services.AddScoped<IFuncionarioDao, FuncionarioDao>();
 builder.Services.AddScoped<ITransferenciaDao, TransferenciaDao>();
+builder.Services.AddScoped<IAuditoriaDao, AuditoriaDao>();
 
 builder.Services.AddScoped<EstadioService>();
 builder.Services.AddScoped<EventoService>();
@@ -61,6 +62,7 @@ builder.Services.AddScoped<FuncionarioService>();
 builder.Services.AddScoped<TransferenciaService>();
 builder.Services.AddScoped<TokenQrService>();
 builder.Services.AddScoped<QrCodeService>();
+builder.Services.AddScoped<AuditoriaService>();
 builder.Services.Configure<TokenQrRefreshOptions>(
     builder.Configuration.GetSection("TokenQrRefresh"));
 builder.Services.AddSingleton(TimeProvider.System);
