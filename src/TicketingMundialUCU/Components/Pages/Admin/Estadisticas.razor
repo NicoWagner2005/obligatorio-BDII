@@ -430,9 +430,7 @@ else
                                     <td>
                                         @if (mov.IdTransferencia.HasValue)
                                         {
-                                            <code class="ticket-code" style="font-size:.7rem">
-                                                @mov.IdTransferencia.Value.ToString().ToUpper()[..8]…
-                                            </code>
+                                            <span class="badge bg-light text-dark border">#@mov.IdTransferencia.Value</span>
                                         }
                                         else
                                         {

@@ -28,7 +28,7 @@ public record OcupacionSector(
     decimal PorcentajeOcupacion);
 
 public record MovimientoAuditoria(
-    long IdMovimiento,
+    int IdMovimiento,
     Guid IdEntrada,
     string TipoMovimiento,
     DateTime FechaMovimiento,
@@ -36,7 +36,7 @@ public record MovimientoAuditoria(
     string EquipoLocal,
     string EquipoVisitante,
     DateTime FechaHoraEvento,
-    Guid? IdTransferencia);
+    int? IdTransferencia);
 
 public record ResumenEstadisticas(
     int TotalVentas,
