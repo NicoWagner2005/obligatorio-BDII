@@ -230,6 +230,9 @@
 .bi-arrow-left-right-nav-menu {
     background-image: url("/icons/arrow-left-right.svg");
 }
+.bi-bar-chart-nav-menu {
+    background-image: url("/icons/bar-chart.svg");
+}
 
 @media (min-width: 641px) {
     .nav-scrollable {

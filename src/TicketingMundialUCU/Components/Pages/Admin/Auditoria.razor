@@ -1,0 +1,314 @@
+@page "/admin/auditoria"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "administrador")]
+@inject AuditoriaService AuditoriaService
+@rendermode InteractiveServer
+
+<PageTitle>Auditoría · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Auditoría</h1>
+    <p class="page-subtitle">Rankings y estadísticas del sistema</p>
+</div>
+
+@if (_cargando)
+{
+    <div class="text-center text-muted py-5">
+        <p class="mb-0">Cargando estadísticas…</p>
+    </div>
+}
+else
+{
+    <!-- KPIs generales -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">💰</div>
+                <div class="stat-body">
+                    <div class="stat-value">$@_kpi.IngresosTotales.ToString("N0")</div>
+                    <div class="stat-label">Ingresos totales</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">🎫</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.TotalEntradas</div>
+                    <div class="stat-label">Entradas emitidas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-purple">✅</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.EntradasConsumidas</div>
+                    <div class="stat-label">Entradas consumidas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-amber">🔄</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.TotalTransferencias</div>
+                    <div class="stat-label">Transferencias</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ventas por estado -->
+    <div class="row g-3 mb-4">
+        <div class="col-4">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-green">💳</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.VentasPagas</div>
+                    <div class="stat-label">Ventas pagas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-blue">📋</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.VentasConfirmadas</div>
+                    <div class="stat-label">Ventas confirmadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="stat-card">
+                <div class="stat-icon stat-icon-amber">⏳</div>
+                <div class="stat-body">
+                    <div class="stat-value">@_kpi.VentasPendientes</div>
+                    <div class="stat-label">Ventas pendientes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ranking de eventos -->
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Ranking de eventos por entradas vendidas</h6>
+            <span class="badge bg-secondary">@_rankingEventos.Count</span>
+        </div>
+        <div class="card-body p-0">
+            @if (!_rankingEventos.Any())
+            {
+                <div class="text-center text-muted py-5">
+                    <p class="mb-0">No hay eventos registrados.</p>
+                </div>
+            }
+            else
+            {
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Evento</th>
+                            <th>Estadio</th>
+                            <th>Fecha</th>
+                            <th class="text-end">Vendidas</th>
+                            <th class="text-end">Consumidas</th>
+                            <th class="text-end">% Ocupación</th>
+                            <th class="text-end">Ingresos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int rankEv = 1; }
+                        @foreach (var ev in _rankingEventos)
+                        {
+                            <tr>
+                                <td class="text-muted small">@rankEv</td>
+                                <td class="fw-semibold">@ev.EquipoLocal vs @ev.EquipoVisitante</td>
+                                <td>@ev.NombreEstadio</td>
+                                <td class="small text-muted">@ev.FechaHora.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="text-end">@ev.EntradasVendidas</td>
+                                <td class="text-end">@ev.EntradasConsumidas</td>
+                                <td class="text-end">
+                                    <span class="badge @(ev.PctOcupacion >= 80 ? "bg-success" : ev.PctOcupacion >= 50 ? "bg-warning text-dark" : "bg-secondary")">
+                                        @ev.PctOcupacion%
+                                    </span>
+                                </td>
+                                <td class="text-end fw-semibold">$@ev.Ingresos.ToString("N0")</td>
+                            </tr>
+                            rankEv++;
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <!-- Top compradores + Actividad funcionarios -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Top 10 compradores</h6>
+                    <span class="badge bg-secondary">@_rankingCompradores.Count</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (!_rankingCompradores.Any())
+                    {
+                        <div class="text-center text-muted py-5">
+                            <p class="mb-0">Sin ventas pagas registradas.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Email</th>
+                                    <th class="text-end">Compras</th>
+                                    <th class="text-end">Entradas</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{ int rankC = 1; }
+                                @foreach (var c in _rankingCompradores)
+                                {
+                                    <tr>
+                                        <td class="text-muted small">@rankC</td>
+                                        <td class="small text-truncate" style="max-width:180px">@c.Email</td>
+                                        <td class="text-end">@c.TotalVentas</td>
+                                        <td class="text-end">@c.TotalEntradas</td>
+                                        <td class="text-end fw-semibold">$@c.TotalGastado.ToString("N0")</td>
+                                    </tr>
+                                    rankC++;
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Actividad de funcionarios</h6>
+                    <span class="badge bg-secondary">@_rankingFuncionarios.Count</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (!_rankingFuncionarios.Any())
+                    {
+                        <div class="text-center text-muted py-5">
+                            <p class="mb-0">Sin funcionarios registrados.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Legajo</th>
+                                    <th>Email</th>
+                                    <th class="text-end">Validaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{ int rankF = 1; }
+                                @foreach (var f in _rankingFuncionarios)
+                                {
+                                    <tr>
+                                        <td class="text-muted small">@rankF</td>
+                                        <td class="fw-semibold">@f.NroLegajo</td>
+                                        <td class="small text-truncate" style="max-width:160px">@f.Email</td>
+                                        <td class="text-end">
+                                            @if (f.TotalValidaciones > 0)
+                                            {
+                                                <span class="badge bg-success">@f.TotalValidaciones</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">0</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    rankF++;
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transferencias -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">Estado de transferencias</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-4">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-amber">⏳</div>
+                        <div class="stat-body">
+                            <div class="stat-value">@_transferencias.Pendientes</div>
+                            <div class="stat-label">Pendientes</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-green">✅</div>
+                        <div class="stat-body">
+                            <div class="stat-value">@_transferencias.Aceptadas</div>
+                            <div class="stat-label">Aceptadas</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-purple">❌</div>
+                        <div class="stat-body">
+                            <div class="stat-value">@_transferencias.Rechazadas</div>
+                            <div class="stat-label">Rechazadas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _cargando = true;
+
+    private KpiAuditoria _kpi = new(0, 0, 0, 0, 0, 0, 0, 0);
+    private List<RankingEvento> _rankingEventos = [];
+    private List<RankingComprador> _rankingCompradores = [];
+    private List<RankingFuncionario> _rankingFuncionarios = [];
+    private EstadisticaTransferencias _transferencias = new(0, 0, 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var kpiTask              = AuditoriaService.GetKpiAsync();
+        var eventosTask          = AuditoriaService.GetRankingEventosAsync();
+        var compradoresTask      = AuditoriaService.GetRankingCompradoresAsync();
+        var funcionariosTask     = AuditoriaService.GetRankingFuncionariosAsync();
+        var transferenciasTask   = AuditoriaService.GetEstadisticaTransferenciasAsync();
+
+        await Task.WhenAll(kpiTask, eventosTask, compradoresTask, funcionariosTask, transferenciasTask);
+
+        _kpi                = kpiTask.Result;
+        _rankingEventos     = eventosTask.Result.ToList();
+        _rankingCompradores = compradoresTask.Result.ToList();
+        _rankingFuncionarios = funcionariosTask.Result.ToList();
+        _transferencias     = transferenciasTask.Result;
+        _cargando = false;
+    }
+}
