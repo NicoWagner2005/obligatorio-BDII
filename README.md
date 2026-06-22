@@ -52,3 +52,9 @@ dotnet run --project src/TicketingMundialUCU/TicketingMundialUCU.csproj
 ```bash
 dotnet test src/TicketingMundialUCU.slnx
 ```
+
+## Documentacion
+
+- Requerimientos: `docs/Requirements.md`
+- Modelo entidad-relacion editable: `docs/diagrama-MER-obligatorio.drawio`
+- Diagramas para el informe: `docs/Diagramas.md`
