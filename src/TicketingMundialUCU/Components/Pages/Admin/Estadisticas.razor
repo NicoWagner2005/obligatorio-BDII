@@ -1,0 +1,494 @@
+@page "/admin/estadisticas"
+@using Microsoft.AspNetCore.Authorization
+@using TicketingMundialUCU.Data.Daos
+@using TicketingMundialUCU.Services
+@attribute [Authorize(Roles = "administrador")]
+@inject AuditoriaService AuditoriaService
+@rendermode InteractiveServer
+
+<PageTitle>Estadísticas · Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Estadísticas y Auditoría</h1>
+    <p class="page-subtitle">Rankings, reportes y trazabilidad del sistema</p>
+</div>
+
+@if (_cargando)
+{
+    <div class="text-center py-5 text-muted">
+        <p>Cargando datos…</p>
+    </div>
+}
+else
+{
+    @* ── Tarjetas de resumen ─────────────────────────────────────────── *@
+    @if (_resumen is not null)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue">🧾</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_resumen.TotalVentas</div>
+                        <div class="stat-label">Ventas totales</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple">🎫</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_resumen.TotalEntradas</div>
+                        <div class="stat-label">Entradas emitidas</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green">💰</div>
+                    <div class="stat-body">
+                        <div class="stat-value">$@_resumen.RecaudacionTotal.ToString("N0")</div>
+                        <div class="stat-label">Recaudación total</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-green">✅</div>
+                    <div class="stat-body">
+                        <div class="stat-value">$@_resumen.RecaudacionPaga.ToString("N0")</div>
+                        <div class="stat-label">Recaudación paga</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-blue">👤</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_resumen.TotalUsuarios</div>
+                        <div class="stat-label">Usuarios registrados</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-purple">🔄</div>
+                    <div class="stat-body">
+                        <div class="stat-value">@_resumen.TotalTransferencias</div>
+                        <div class="stat-label">Transferencias</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Estado de ventas *@
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="card h-100">
+                    <div class="card-header"><h6 class="mb-0">Estado de ventas</h6></div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="status-pill sp-pending">pendiente</span>
+                            <strong>@_resumen.VentasPendientes</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="status-pill sp-confirmed">confirmada</span>
+                            <strong>@_resumen.VentasConfirmadas</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="status-pill sp-paid">paga</span>
+                            <strong>@_resumen.VentasPagas</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card h-100">
+                    <div class="card-header"><h6 class="mb-0">Eventos activos</h6></div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <div class="text-center">
+                            <div class="display-6 fw-bold">@_resumen.TotalEventos</div>
+                            <div class="text-muted small">eventos programados</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card h-100">
+                    <div class="card-header"><h6 class="mb-0">Tasa de cobro</h6></div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <div class="text-center">
+                            @{
+                                var tasaCobro = _resumen.RecaudacionTotal > 0
+                                    ? _resumen.RecaudacionPaga / _resumen.RecaudacionTotal * 100
+                                    : 0;
+                            }
+                            <div class="display-6 fw-bold">@tasaCobro.ToString("0.#")%</div>
+                            <div class="text-muted small">de la recaudación cobrada</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Tabs ────────────────────────────────────────────────────────── *@
+    <ul class="nav nav-tabs mb-3" id="statsTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(_tabActiva == "eventos" ? "active" : "")"
+                    @onclick='() => _tabActiva = "eventos"' type="button">
+                Ranking eventos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(_tabActiva == "compradores" ? "active" : "")"
+                    @onclick='() => _tabActiva = "compradores"' type="button">
+                Ranking compradores
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(_tabActiva == "ocupacion" ? "active" : "")"
+                    @onclick='() => _tabActiva = "ocupacion"' type="button">
+                Ocupación de sectores
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(_tabActiva == "auditoria" ? "active" : "")"
+                    @onclick='() => _tabActiva = "auditoria"' type="button">
+                Historial de auditoría
+            </button>
+        </li>
+    </ul>
+
+    @* ── Tab: Ranking eventos ─────────────────────────────────────────── *@
+    @if (_tabActiva == "eventos")
+    {
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Eventos con más entradas vendidas</h6>
+                <span class="badge bg-secondary">@_rankingEventos.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (!_rankingEventos.Any())
+                {
+                    <div class="text-center text-muted py-5">No hay datos disponibles.</div>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center">#</th>
+                                <th>Partido</th>
+                                <th>Estadio</th>
+                                <th>Fecha</th>
+                                <th class="text-center">Vendidas</th>
+                                <th class="text-center">Capacidad</th>
+                                <th class="text-center">Ocupación</th>
+                                <th class="text-end">Recaudación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var posEvento = 1;
+                            }
+                            @foreach (var ev in _rankingEventos)
+                            {
+                                var pct = ev.CapacidadTotal > 0
+                                    ? (double)ev.EntradasVendidas / ev.CapacidadTotal * 100
+                                    : 0;
+                                var badgeClass = posEvento switch {
+                                    1 => "bg-warning text-dark",
+                                    2 => "bg-secondary",
+                                    3 => "bg-danger bg-opacity-75",
+                                    _ => "bg-light text-dark border",
+                                };
+                                <tr>
+                                    <td class="text-center">
+                                        <span class="badge @badgeClass">@posEvento</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold">@ev.EquipoLocal vs @ev.EquipoVisitante</span>
+                                    </td>
+                                    <td class="text-muted small">@ev.NombreEstadio</td>
+                                    <td>
+                                        <div class="date-cell">
+                                            <div class="date-main">@ev.FechaHoraEvento.ToString("dd MMM yyyy")</div>
+                                            <div class="date-time">@ev.FechaHoraEvento.ToString("HH:mm") hs</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center fw-semibold">@ev.EntradasVendidas</td>
+                                    <td class="text-center text-muted">@ev.CapacidadTotal</td>
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height:6px">
+                                                <div class="progress-bar @(pct > 80 ? "bg-danger" : pct > 50 ? "bg-warning" : "bg-success")"
+                                                     style="width:@(pct.ToString("0.#"))%"></div>
+                                            </div>
+                                            <small class="text-muted">@pct.ToString("0")%</small>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">$@ev.Recaudacion.ToString("N0")</td>
+                                </tr>
+                                posEvento++;
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Tab: Ranking compradores ─────────────────────────────────────── *@
+    @if (_tabActiva == "compradores")
+    {
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Mayores compradores (top 20)</h6>
+                <span class="badge bg-secondary">@_rankingCompradores.Count</span>
+            </div>
+            <div class="card-body p-0">
+                @if (!_rankingCompradores.Any())
+                {
+                    <div class="text-center text-muted py-5">No hay datos disponibles.</div>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center">#</th>
+                                <th>Usuario</th>
+                                <th class="text-center">Entradas</th>
+                                <th class="text-center">Ventas</th>
+                                <th class="text-end">Total gastado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var posComprador = 1;
+                            }
+                            @foreach (var c in _rankingCompradores)
+                            {
+                                var badgeClassC = posComprador switch {
+                                    1 => "bg-warning text-dark",
+                                    2 => "bg-secondary",
+                                    3 => "bg-danger bg-opacity-75",
+                                    _ => "bg-light text-dark border",
+                                };
+                                <tr>
+                                    <td class="text-center">
+                                        <span class="badge @badgeClassC">@posComprador</span>
+                                    </td>
+                                    <td class="small" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        @c.EmailUsuario
+                                    </td>
+                                    <td class="text-center fw-semibold">@c.TotalEntradas</td>
+                                    <td class="text-center text-muted">@c.TotalVentas</td>
+                                    <td class="text-end">$@c.TotalGastado.ToString("N0")</td>
+                                </tr>
+                                posComprador++;
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Tab: Ocupación de sectores ───────────────────────────────────── *@
+    @if (_tabActiva == "ocupacion")
+    {
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Ocupación por sector y evento</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (!_ocupacion.Any())
+                {
+                    <div class="text-center text-muted py-5">No hay sectores habilitados aún.</div>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Partido</th>
+                                <th>Estadio</th>
+                                <th>Fecha</th>
+                                <th class="text-center">Sector</th>
+                                <th class="text-center">Vendidas / Cap.</th>
+                                <th class="text-center" style="min-width:160px">Ocupación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var o in _ocupacion)
+                            {
+                                var pctOcup = (double)o.PorcentajeOcupacion;
+                                <tr>
+                                    <td>
+                                        <span class="fw-semibold small">@o.EquipoLocal vs @o.EquipoVisitante</span>
+                                    </td>
+                                    <td class="text-muted small">@o.NombreEstadio</td>
+                                    <td>
+                                        <div class="date-cell">
+                                            <div class="date-main">@o.FechaHoraEvento.ToString("dd MMM yyyy")</div>
+                                            <div class="date-time">@o.FechaHoraEvento.ToString("HH:mm") hs</div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="sector-badge sector-@o.IdSector">@o.IdSector</span>
+                                    </td>
+                                    <td class="text-center text-muted small">
+                                        @o.EntradasVendidas / @o.CapacidadMax
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height:8px">
+                                                <div class="progress-bar @(pctOcup > 80 ? "bg-danger" : pctOcup > 50 ? "bg-warning" : "bg-success")"
+                                                     style="width:@(pctOcup.ToString("0.#"))%"></div>
+                                            </div>
+                                            <small class="text-muted" style="min-width:38px">@o.PorcentajeOcupacion.ToString("0.#")%</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Tab: Historial de auditoría ──────────────────────────────────── *@
+    @if (_tabActiva == "auditoria")
+    {
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Historial de custodia de entradas</h6>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0">Mostrar:</label>
+                    <select class="form-select form-select-sm" style="width:auto"
+                            @onchange="CambiarLimiteAuditoria">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                @if (!_auditoria.Any())
+                {
+                    <div class="text-center text-muted py-5">No hay movimientos registrados.</div>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Fecha</th>
+                                <th>Partido</th>
+                                <th>Poseedor actual</th>
+                                <th>Código entrada</th>
+                                <th>Transferencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var mov in _auditoria)
+                            {
+                                var tipoPill = mov.TipoMovimiento == "emision"
+                                    ? "status-pill sp-confirmed"
+                                    : "status-pill sp-pending";
+                                <tr>
+                                    <td>
+                                        <span class="@tipoPill">@mov.TipoMovimiento</span>
+                                    </td>
+                                    <td>
+                                        <div class="date-cell">
+                                            <div class="date-main">@mov.FechaMovimiento.ToString("dd MMM yyyy")</div>
+                                            <div class="date-time">@mov.FechaMovimiento.ToString("HH:mm") hs</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="small">
+                                            <span class="fw-semibold">@mov.EquipoLocal vs @mov.EquipoVisitante</span>
+                                        </div>
+                                        <div class="text-muted" style="font-size:.75rem">
+                                            @mov.FechaHoraEvento.ToString("dd MMM yyyy")
+                                        </div>
+                                    </td>
+                                    <td class="small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                        @mov.EmailPoseedorActual
+                                    </td>
+                                    <td>
+                                        <code class="ticket-code" style="font-size:.7rem">
+                                            @mov.IdEntrada.ToString().ToUpper()[..8]…
+                                        </code>
+                                    </td>
+                                    <td>
+                                        @if (mov.IdTransferencia.HasValue)
+                                        {
+                                            <span class="badge bg-light text-dark border">#@mov.IdTransferencia.Value</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _cargando = true;
+    private string _tabActiva = "eventos";
+
+    private ResumenEstadisticas? _resumen;
+    private List<EventoRanking> _rankingEventos = [];
+    private List<CompradorRanking> _rankingCompradores = [];
+    private List<OcupacionSector> _ocupacion = [];
+    private List<MovimientoAuditoria> _auditoria = [];
+    private int _limiteAuditoria = 100;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarTodoAsync();
+    }
+
+    private async Task CargarTodoAsync()
+    {
+        _cargando = true;
+
+        var resumenTask     = AuditoriaService.GetResumenAsync();
+        var eventosTask     = AuditoriaService.GetRankingEventosAsync();
+        var compradoresTask = AuditoriaService.GetRankingCompradoresAsync();
+        var ocupacionTask   = AuditoriaService.GetOcupacionSectoresAsync();
+        var auditoriaTask   = AuditoriaService.GetHistorialCustodiaAsync(_limiteAuditoria);
+
+        await Task.WhenAll(resumenTask, eventosTask, compradoresTask, ocupacionTask, auditoriaTask);
+
+        _resumen            = await resumenTask;
+        _rankingEventos     = (await eventosTask).ToList();
+        _rankingCompradores = (await compradoresTask).ToList();
+        _ocupacion          = (await ocupacionTask).ToList();
+        _auditoria          = (await auditoriaTask).ToList();
+        _cargando = false;
+    }
+
+    private async Task CambiarLimiteAuditoria(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var limite))
+        {
+            _limiteAuditoria = limite;
+            _auditoria = (await AuditoriaService.GetHistorialCustodiaAsync(_limiteAuditoria)).ToList();
+        }
+    }
+}
