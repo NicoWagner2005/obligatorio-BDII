@@ -4,7 +4,7 @@ Proyecto del obligatorio de Bases de Datos II: sistema de ticketing para el
 Mundial 2026 con registro de usuarios, gestion de estadios/eventos, ventas,
 transferencias, QR dinamico y validacion de accesos.
 
-## Scanner QR
+## Scanner QR (aclaracion)
 
 El scanner QR se usa desde la pantalla de funcionario para leer el token dinamico
 con la camara del navegador. Si el navegador o el permiso de camara no estan
