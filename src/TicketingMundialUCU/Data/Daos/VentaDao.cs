@@ -22,6 +22,24 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
     private readonly string _connectionString =
         configuration.GetConnectionString("DefaultConnection")!;
 
+    private const string VentaResumenSelectFrom = """
+        SELECT
+            v.id_venta                  AS "IdVenta",
+            v.id_comprador              AS "IdComprador",
+            u."Email"                   AS "EmailUsuario",
+            v.fecha_venta               AS "FechaVenta",
+            v.estado                    AS "Estado",
+            v.monto_total               AS "MontoTotal",
+            v.tasa_comision_aplicada    AS "TasaComisionAplicada",
+            COUNT(en.id_entrada)::int   AS "CantidadEntradas"
+        FROM ventas v
+        JOIN "AspNetUsers" u ON v.id_comprador = u."Id"
+        LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+        LEFT JOIN entradas en
+            ON en.id_venta = dv.id_venta
+            AND en.nro_linea_detalle_venta = dv.nro_linea
+        """;
+
     public async Task<TasaComision> GetTasaVigenteAsync()
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -181,22 +199,8 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<VentaResumen>(
-            """
-            SELECT
-                v.id_venta                  AS "IdVenta",
-                v.id_comprador              AS "IdComprador",
-                u."Email"                   AS "EmailUsuario",
-                v.fecha_venta               AS "FechaVenta",
-                v.estado                    AS "Estado",
-                v.monto_total               AS "MontoTotal",
-                v.tasa_comision_aplicada    AS "TasaComisionAplicada",
-                COUNT(en.id_entrada)::int   AS "CantidadEntradas"
-            FROM ventas v
-            JOIN "AspNetUsers" u ON v.id_comprador = u."Id"
-            LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
-            LEFT JOIN entradas en
-                ON en.id_venta = dv.id_venta
-                AND en.nro_linea_detalle_venta = dv.nro_linea
+            VentaResumenSelectFrom + """
+
             GROUP BY v.id_venta, u."Email"
             ORDER BY v.fecha_venta DESC
             """);
@@ -208,27 +212,33 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
         await using var connection = new NpgsqlConnection(_connectionString);
         var rows = await connection.QueryAsync<(string IdSector, int CapacidadMax, int Vendidas)>(
             """
+            WITH vendidas AS (
+                SELECT
+                    dv.id_estadio,
+                    dv.id_sector,
+                    COUNT(en.id_entrada)::int AS total
+                FROM detalle_venta dv
+                JOIN ventas v
+                    ON v.id_venta = dv.id_venta
+                    AND v.estado != 'cancelada'
+                JOIN entradas en
+                    ON en.id_venta = dv.id_venta
+                    AND en.nro_linea_detalle_venta = dv.nro_linea
+                WHERE dv.id_evento = @IdEvento
+                GROUP BY dv.id_estadio, dv.id_sector
+            )
             SELECT
-                s.id_sector                                     AS "IdSector",
-                s.capacidad_max                                 AS "CapacidadMax",
-                COALESCE(COUNT(en.id_entrada), 0)::int          AS "Vendidas"
+                s.id_sector                         AS "IdSector",
+                s.capacidad_max                     AS "CapacidadMax",
+                COALESCE(vendidas.total, 0)::int    AS "Vendidas"
             FROM sectores s
             LEFT JOIN evento_habilita_sector ehs
                 ON ehs.id_estadio = s.id_estadio AND ehs.id_sector = s.id_sector
                 AND ehs.id_evento = @IdEvento
-            LEFT JOIN detalle_venta dv
-                ON dv.id_evento = @IdEvento
-                AND dv.id_estadio = s.id_estadio
-                AND dv.id_sector = s.id_sector
-            LEFT JOIN entradas en
-                ON en.id_venta = dv.id_venta
-                AND en.nro_linea_detalle_venta = dv.nro_linea
-                AND EXISTS (
-                    SELECT 1 FROM ventas v
-                    WHERE v.id_venta = dv.id_venta AND v.estado != 'cancelada'
-                )
+            LEFT JOIN vendidas
+                ON vendidas.id_estadio = s.id_estadio
+                AND vendidas.id_sector = s.id_sector
             WHERE s.id_estadio = @IdEstadio
-            GROUP BY s.id_sector, s.capacidad_max
             """,
             new { IdEvento = idEvento, IdEstadio = idEstadio });
 
@@ -239,22 +249,8 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<VentaResumen>(
-            """
-            SELECT
-                v.id_venta                  AS "IdVenta",
-                v.id_comprador              AS "IdComprador",
-                u."Email"                   AS "EmailUsuario",
-                v.fecha_venta               AS "FechaVenta",
-                v.estado                    AS "Estado",
-                v.monto_total               AS "MontoTotal",
-                v.tasa_comision_aplicada    AS "TasaComisionAplicada",
-                COUNT(en.id_entrada)::int   AS "CantidadEntradas"
-            FROM ventas v
-            JOIN "AspNetUsers" u ON v.id_comprador = u."Id"
-            LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
-            LEFT JOIN entradas en
-                ON en.id_venta = dv.id_venta
-                AND en.nro_linea_detalle_venta = dv.nro_linea
+            VentaResumenSelectFrom + """
+
             WHERE v.id_comprador = @IdUsuario
             GROUP BY v.id_venta, u."Email"
             ORDER BY v.fecha_venta DESC

@@ -32,15 +32,39 @@ public class AuditoriaDao(IConfiguration configuration) : IAuditoriaDao
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<EventoRanking>(
             """
+            WITH vendidas AS (
+                SELECT
+                    dv.id_evento,
+                    COUNT(en.id_entrada)::int AS total,
+                    COALESCE(SUM(dv.subtotal), 0) AS recaudacion
+                FROM detalle_venta dv
+                JOIN ventas v
+                    ON v.id_venta = dv.id_venta
+                    AND v.estado != 'cancelada'
+                JOIN entradas en
+                    ON en.id_venta = dv.id_venta
+                    AND en.nro_linea_detalle_venta = dv.nro_linea
+                GROUP BY dv.id_evento
+            ),
+            capacidad AS (
+                SELECT
+                    ehs.id_evento,
+                    SUM(s.capacidad_max)::int AS capacidad_total
+                FROM evento_habilita_sector ehs
+                JOIN sectores s
+                    ON s.id_estadio = ehs.id_estadio
+                    AND s.id_sector = ehs.id_sector
+                GROUP BY ehs.id_evento
+            )
             SELECT
-                e.id_evento                             AS "IdEvento",
-                e.fecha_hora                            AS "FechaHoraEvento",
-                est.nombre                              AS "NombreEstadio",
-                COALESCE(eq_l.nombre, '—')              AS "EquipoLocal",
-                COALESCE(eq_v.nombre, '—')              AS "EquipoVisitante",
-                COALESCE(vendidas.total, 0)             AS "EntradasVendidas",
-                COALESCE(vendidas.recaudacion, 0)       AS "Recaudacion",
-                COALESCE(cap.capacidad_total, 0)        AS "CapacidadTotal"
+                e.id_evento                                AS "IdEvento",
+                e.fecha_hora                               AS "FechaHoraEvento",
+                est.nombre                                 AS "NombreEstadio",
+                COALESCE(eq_l.nombre, '—')                 AS "EquipoLocal",
+                COALESCE(eq_v.nombre, '—')                 AS "EquipoVisitante",
+                COALESCE(vendidas.total, 0)                AS "EntradasVendidas",
+                COALESCE(vendidas.recaudacion, 0)          AS "Recaudacion",
+                COALESCE(capacidad.capacidad_total, 0)     AS "CapacidadTotal"
             FROM eventos e
             JOIN estadios est ON est.id_estadio = e.id_estadio
             LEFT JOIN equipo_juega_evento eje_l
@@ -49,24 +73,8 @@ public class AuditoriaDao(IConfiguration configuration) : IAuditoriaDao
             LEFT JOIN equipo_juega_evento eje_v
                 ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
             LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
-            LEFT JOIN (
-                SELECT dv.id_evento,
-                       COUNT(en.id_entrada)::int    AS total,
-                       COALESCE(SUM(dv.subtotal), 0)  AS recaudacion
-                FROM detalle_venta dv
-                JOIN ventas v ON v.id_venta = dv.id_venta AND v.estado != 'cancelada'
-                JOIN entradas en
-                    ON en.id_venta = dv.id_venta
-                    AND en.nro_linea_detalle_venta = dv.nro_linea
-                GROUP BY dv.id_evento
-            ) vendidas ON vendidas.id_evento = e.id_evento
-            LEFT JOIN (
-                SELECT ehs.id_evento, SUM(s.capacidad_max)::int AS capacidad_total
-                FROM evento_habilita_sector ehs
-                JOIN sectores s
-                    ON s.id_estadio = ehs.id_estadio AND s.id_sector = ehs.id_sector
-                GROUP BY ehs.id_evento
-            ) cap ON cap.id_evento = e.id_evento
+            LEFT JOIN vendidas ON vendidas.id_evento = e.id_evento
+            LEFT JOIN capacidad ON capacidad.id_evento = e.id_evento
             ORDER BY "EntradasVendidas" DESC, e.fecha_hora
             """);
     }
@@ -115,6 +123,21 @@ public class AuditoriaDao(IConfiguration configuration) : IAuditoriaDao
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<OcupacionSector>(
             """
+            WITH vendidas AS (
+                SELECT
+                    dv.id_evento,
+                    dv.id_estadio,
+                    dv.id_sector,
+                    COUNT(en.id_entrada)::int AS total
+                FROM detalle_venta dv
+                JOIN ventas v
+                    ON v.id_venta = dv.id_venta
+                    AND v.estado != 'cancelada'
+                JOIN entradas en
+                    ON en.id_venta = dv.id_venta
+                    AND en.nro_linea_detalle_venta = dv.nro_linea
+                GROUP BY dv.id_evento, dv.id_estadio, dv.id_sector
+            )
             SELECT
                 e.id_evento                                                             AS "IdEvento",
                 e.fecha_hora                                                            AS "FechaHoraEvento",
@@ -138,19 +161,10 @@ public class AuditoriaDao(IConfiguration configuration) : IAuditoriaDao
             LEFT JOIN equipo_juega_evento eje_v
                 ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
             LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
-            LEFT JOIN (
-                SELECT dv.id_evento, dv.id_estadio, dv.id_sector,
-                       COUNT(en.id_entrada)::int AS total
-                FROM detalle_venta dv
-                JOIN ventas v ON v.id_venta = dv.id_venta AND v.estado != 'cancelada'
-                JOIN entradas en
-                    ON en.id_venta = dv.id_venta
-                    AND en.nro_linea_detalle_venta = dv.nro_linea
-                GROUP BY dv.id_evento, dv.id_estadio, dv.id_sector
-            ) vendidas
-                ON vendidas.id_evento  = ehs.id_evento
+            LEFT JOIN vendidas
+                ON vendidas.id_evento = ehs.id_evento
                AND vendidas.id_estadio = ehs.id_estadio
-               AND vendidas.id_sector  = ehs.id_sector
+               AND vendidas.id_sector = ehs.id_sector
             ORDER BY e.fecha_hora, ehs.id_sector
             """);
     }

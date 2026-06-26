@@ -9,6 +9,29 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         configuration.GetConnectionString("DefaultConnection")!;
     private sealed record EntradaBloqueada(Guid IdEntrada, string EstadoVenta);
 
+    private const string AsignacionSectorSelectFrom = """
+        SELECT
+            fse.id_funcionario  AS "IdFuncionario",
+            f.nro_legajo        AS "NroLegajo",
+            fse.id_evento       AS "IdEvento",
+            fse.id_estadio      AS "IdEstadio",
+            fse.id_sector       AS "IdSector",
+            est.nombre          AS "NombreEstadio",
+            e.fecha_hora        AS "FechaHora",
+            eq_l.nombre         AS "EquipoLocal",
+            eq_v.nombre         AS "EquipoVisitante"
+        FROM funcionario_sector_evento fse
+        JOIN funcionarios f      ON f.usuario_id   = fse.id_funcionario
+        JOIN eventos e           ON e.id_evento    = fse.id_evento
+        JOIN estadios est        ON est.id_estadio = fse.id_estadio
+        LEFT JOIN equipo_juega_evento eje_l
+            ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
+        LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
+        LEFT JOIN equipo_juega_evento eje_v
+            ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
+        LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+        """;
+
     public async Task<IEnumerable<FuncionarioInfo>> GetAllFuncionariosAsync()
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -102,27 +125,8 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<AsignacionSector>(
-            """
-            SELECT
-                fse.id_funcionario  AS "IdFuncionario",
-                f.nro_legajo        AS "NroLegajo",
-                fse.id_evento       AS "IdEvento",
-                fse.id_estadio      AS "IdEstadio",
-                fse.id_sector       AS "IdSector",
-                est.nombre          AS "NombreEstadio",
-                e.fecha_hora        AS "FechaHora",
-                eq_l.nombre         AS "EquipoLocal",
-                eq_v.nombre         AS "EquipoVisitante"
-            FROM funcionario_sector_evento fse
-            JOIN funcionarios f      ON f.usuario_id   = fse.id_funcionario
-            JOIN eventos e           ON e.id_evento    = fse.id_evento
-            JOIN estadios est        ON est.id_estadio = fse.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+            AsignacionSectorSelectFrom + """
+
             ORDER BY f.nro_legajo, e.fecha_hora, fse.id_sector
             """);
     }
@@ -131,27 +135,8 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<AsignacionSector>(
-            """
-            SELECT
-                fse.id_funcionario  AS "IdFuncionario",
-                f.nro_legajo        AS "NroLegajo",
-                fse.id_evento       AS "IdEvento",
-                fse.id_estadio      AS "IdEstadio",
-                fse.id_sector       AS "IdSector",
-                est.nombre          AS "NombreEstadio",
-                e.fecha_hora        AS "FechaHora",
-                eq_l.nombre         AS "EquipoLocal",
-                eq_v.nombre         AS "EquipoVisitante"
-            FROM funcionario_sector_evento fse
-            JOIN funcionarios f      ON f.usuario_id   = fse.id_funcionario
-            JOIN eventos e           ON e.id_evento    = fse.id_evento
-            JOIN estadios est        ON est.id_estadio = fse.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+            AsignacionSectorSelectFrom + """
+
             WHERE fse.id_evento = @IdEvento
             ORDER BY f.nro_legajo, fse.id_sector
             """,
@@ -162,27 +147,8 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<AsignacionSector>(
-            """
-            SELECT
-                fse.id_funcionario  AS "IdFuncionario",
-                f.nro_legajo        AS "NroLegajo",
-                fse.id_evento       AS "IdEvento",
-                fse.id_estadio      AS "IdEstadio",
-                fse.id_sector       AS "IdSector",
-                est.nombre          AS "NombreEstadio",
-                e.fecha_hora        AS "FechaHora",
-                eq_l.nombre         AS "EquipoLocal",
-                eq_v.nombre         AS "EquipoVisitante"
-            FROM funcionario_sector_evento fse
-            JOIN funcionarios f      ON f.usuario_id   = fse.id_funcionario
-            JOIN eventos e           ON e.id_evento    = fse.id_evento
-            JOIN estadios est        ON est.id_estadio = fse.id_estadio
-            LEFT JOIN equipo_juega_evento eje_l
-                ON e.id_evento = eje_l.id_evento AND eje_l.rol = 'local'
-            LEFT JOIN equipos eq_l ON eje_l.id_equipo = eq_l.id_equipo
-            LEFT JOIN equipo_juega_evento eje_v
-                ON e.id_evento = eje_v.id_evento AND eje_v.rol = 'visitante'
-            LEFT JOIN equipos eq_v ON eje_v.id_equipo = eq_v.id_equipo
+            AsignacionSectorSelectFrom + """
+
             WHERE fse.id_funcionario = @IdFuncionario
             ORDER BY e.fecha_hora DESC, fse.id_sector
             """,
@@ -329,23 +295,30 @@ public class FuncionarioDao(IConfiguration configuration) : IFuncionarioDao
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<CoberturasSector>(
             """
+            WITH validaciones AS (
+                SELECT DISTINCT
+                    de.id_funcionario,
+                    dv.id_evento,
+                    dv.id_sector
+                FROM tokens_qr tq
+                JOIN entradas en ON en.id_entrada = tq.id_entrada
+                JOIN detalle_venta dv
+                    ON dv.id_venta = en.id_venta
+                    AND dv.nro_linea = en.nro_linea_detalle_venta
+                JOIN dispositivos_escaneo de
+                    ON de.id_dispositivo = tq.id_dispositivo
+                WHERE tq.id_dispositivo IS NOT NULL
+                  AND de.id_funcionario = @IdFuncionario
+                  AND dv.id_evento = @IdEvento
+            )
             SELECT
                 fse.id_sector AS "IdSector",
-                EXISTS (
-                    SELECT 1
-                    FROM tokens_qr tq
-                    JOIN entradas en ON en.id_entrada = tq.id_entrada
-                    JOIN detalle_venta dv
-                        ON dv.id_venta = en.id_venta
-                       AND dv.nro_linea = en.nro_linea_detalle_venta
-                    JOIN dispositivos_escaneo de
-                        ON de.id_dispositivo = tq.id_dispositivo
-                    WHERE de.id_funcionario = fse.id_funcionario
-                      AND dv.id_evento      = fse.id_evento
-                      AND dv.id_sector      = fse.id_sector
-                      AND tq.id_dispositivo IS NOT NULL
-                ) AS "Validado"
+                (validaciones.id_sector IS NOT NULL) AS "Validado"
             FROM funcionario_sector_evento fse
+            LEFT JOIN validaciones
+                ON validaciones.id_funcionario = fse.id_funcionario
+                AND validaciones.id_evento = fse.id_evento
+                AND validaciones.id_sector = fse.id_sector
             WHERE fse.id_funcionario = @IdFuncionario
               AND fse.id_evento      = @IdEvento
             ORDER BY fse.id_sector
