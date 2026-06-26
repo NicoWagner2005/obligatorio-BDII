@@ -30,29 +30,33 @@ AspNetUserTokens(UserId, LoginProvider, Name, Value)
 __EFMigrationsHistory(MigrationId, ProductVersion)
 	PK(MigrationId)
 
-usuarios(idUsuario, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
-    PK(idUsuario)
+usuarios(id, nroDocumento, tipoDocumento, paisDocumento, paisDireccion, localidad, calle, nroDireccion, codigoPostal)
+    PK(id)
     AK(nroDocumento, tipoDocumento, paisDocumento)
     FK(idUsuario) -> AspNetUsers(Id)
+    -- nroDocumento UNIQUE
+    -- tipoDocumento UNIQUE
+    -- paisDocumento UNIQUE
 
-funcionarios(idFuncionario, nroLegajo)
-    PK(idFuncionario)
+funcionarios(usuarioId, nroLegajo)
+    PK(usuarioId)
     AK(nroLegajo)
-    FK(idFuncionario) -> usuarios(idUsuario)
+    FK(usuarioId) -> usuarios(id)
+    -- nroLegajo UNIQUE
 
-administradores(idAdministrador, fechaAsignacion)
-    PK(idAdministrador)
-    FK(idAdministrador) -> usuarios(idUsuario)
+administradores(usuarioId, fechaAsignacion)
+    PK(usuarioId)
+    FK(usuarioId) -> usuarios(id)
 
-usuarios_generales(idUsuario, fechaRegistro, estadoIdentidad)
-PK(idUsuario)
-FK(idUsuario) -> usuarios(idUsuario)
--- fechaRegistro NOT NULL
--- estadoIdentidad NOT NULL
+usuarios_generales(usuarioId, fechaRegistro, estadoIdentidad)
+    PK(usuarioId)
+    FK(usuarioId) -> usuarios(id)
+    -- fechaRegistro NOT NULL
+    -- estadoIdentidad NOT NULL
 
-ventas(idVenta, idComprador, estado, tasaComision, montoTotal, fecha, id_tasa)
+ventas(idVenta, idComprador, fechaVenta, estado, montoTotal, tasaComisionAplicada, idTasa)
 PK(idVenta)
-FK(idComprador) -> usuarios_generales(idUsuario)
+FK(idComprador) -> usuarios_generales(usuarioId)
 FK(id_tasa) -> tasa_comision(id_tasa)
 -- idComprador NOT NULL
 -- estado NOT NULL
@@ -71,7 +75,7 @@ RNE: cantidad ≤ 5
 =====================================================================================
 entradas(idEntrada, idPoseedor, idVenta, nroLineaDetalleVenta)
 PK(idEntrada)
-FK(idPoseedor) -> usuarios_generales(idUsuario)
+FK(idPoseedor) -> usuarios_generales(usuarioId)
 FK(idVenta, nroLineaDetalleVenta) -> detalle_venta(idVenta, nroLinea)
 -- idPoseedor NOT NULL
 -- idVenta NOT NULL
@@ -89,43 +93,46 @@ entradas(idEntrada, idPoseedor, idVenta, nroLineaDetalleVenta)
 =====================================================================================
 
 
-tokens_qr(idTokenQR, idEntrada, fechaExpiracion, idDispositivo)
-PK(idTokenQR)
-FK(idEntrada) -> entradas(idEntrada)
-FK(idDispositivo) -> dispositivos_escaneo(idDispositivo)
--- idEntrada NOT NULL
--- fechaExpiracion NOT NULL
+tokens_qr(idTokenQR, codigoToken, idEntrada, fechaExpiracion, idDispositivo)
+    PK(idTokenQR)
+    FK(idEntrada) -> entradas(idEntrada)
+    FK(idDispositivo) -> dispositivos_escaneo(idDispositivo)
+    -- idEntrada UNIQUE
+    -- fechaExpiracion NOT NULL
+    -- codigoToken UNIQUE
 RNE: Una entrada puede validarse como máximo una vez
 
 transferencias(idTransferencia, idEntrada, idSolicitante, idReceptor, estado, fechaSolicitud)
-PK(idTransferencia)
-FK(idEntrada) -> entradas(idEntrada)
-FK(idSolicitante) -> usuarios_generales(idUsuario)
-FK(idReceptor) -> usuarios_generales(idUsuario)
--- idEntrada NOT NULL
--- idSolicitante NOT NULL
--- idReceptor NOT NULL
--- estado NOT NULL
--- fechaSolicitud NOT NULL
-RNE: Una entrada puede transferirse como máximo 3 veces
-RNE: idSolicitante ≠ idReceptor
+    PK(idTransferencia)
+    FK(idEntrada) -> entradas(idEntrada)
+    FK(idSolicitante) -> usuarios_generales(usuarioId)
+    FK(idReceptor) -> usuarios_generales(usuarioId)
+    -- idEntrada NOT NULL
+    -- idSolicitante NOT NULL
+    -- idReceptor NOT NULL
+    -- estado NOT NULL
+    -- fechaSolicitud NOT NULL
+    RNE: Una entrada puede transferirse como máximo 3 veces
+    RNE: idSolicitante ≠ idReceptor
 
 historial_custodia_entrada(idMovimiento, idEntrada, tipoMovimiento, fechaMovimiento)
-PK(idMovimiento)
-FK(idEntrada) -> entradas(idEntrada)
--- idEntrada NOT NULL
--- tipoMovimiento NOT NULL
--- fechaMovimiento NOT NULL
--- Dominio(tipoMovimiento) = {emision, transferencia}
+    PK(idMovimiento)
+    FK(idEntrada) -> entradas(idEntrada){¿
+    -- idMovimiento UNIQUE
+    -- idEntrada NOT NULL
+    -- tipoMovimiento NOT NULL
+    -- fechaMovimiento NOT NULL
+    -- Dominio(tipoMovimiento) = {emision, transferencia}
 
 paises_sede(nombre)
 	PK(nombre)
 
 administrador_asignado_a_pais_sede(idAdministrador, nombrePaisSede)
-	PK(idAdministrador, nombrePaisSede)
-	FK(idAdministrador) -> administradores(idAdministrador)
-	FK(nombrePaisSede) -> paises_sede(nombre)
-
+    PK(idAdministrador, nombrePaisSede)
+    FK(idAdministrador) -> administradores(usuarioId)
+    FK(nombrePaisSede) -> paises_sede(nombre)
+    -- idAdministrador UNIQUE
+    
 estadios(idEstadio, nombre, nombrePaisSede)
 	PK(idEstadio)
 	FK(nombrePaisSede) -> paises_sede(nombre)
@@ -135,35 +142,40 @@ sectores(idEstadio, idSector, capacidadMax)
     FK(idEstadio) -> estadios(idEstadio)
     
 eventos(idEvento, fechaHora, idAdministrador, idEstadio)
-	PK(idEvento)
-	FK(idAdministrador) -> administradores(idAdministrador)
-	FK(idEstadio) -> estadios(idEstadio)
-
+    PK(idEvento)
+    FK(idAdministrador) -> administradores(usuarioId)
+    FK(idEstadio) -> estadios(idEstadio)
+    -- idEstadio NOT NULL
+    -- fechaHora NOT NULL
+	
 equipos(idEquipo, nombre)
-	PK(idEquipo)
+    PK(idEquipo)
+    -- nombre UNIQUE
     
 equipo_juega_evento(idEquipo, idEvento, rol)
-	PK(idEquipo, idEvento)
-	FK(idEquipo) -> equipos(idEquipo)
-	FK(idEvento) -> eventos(idEvento)
-    
-evento_habilita_sector(idEvento, idEstadio, idSector)
+    PK(idEquipo, idEvento)
+    FK(idEquipo) -> equipos(idEquipo)
+    FK(idEvento) -> eventos(idEvento)
+    -- idEvento UNIQUE
+    -- rol UNIQUE
+
+evento_habilita_sector(idEvento, idEstadio, idSector, precio)
 	PK(idEvento, idEstadio, idSector)
 	FK(idEvento) -> eventos(idEvento)
 	FK(idEstadio, idSector) -> sectores(idEstadio, idSector)
 
-telefonos_usuario(idUsuario, telefono)
-    PK(idUsuario, telefono)
-    FK(idUsuario) -> usuarios(idUsuario)
+telefonos_usuario(usuarioId, telefono)
+    PK(usuarioId, telefono)
+    FK(usuarioId) -> usuarios(usuarioId)
 
-funcionario_asignado_a_sector_en_evento(idFuncionario, idEvento, idEstadio, idSector)
+funcionario_sector_en_evento(idFuncionario, idEvento, idEstadio, idSector)
     PK(idFuncionario, idEvento, idEstadio, idSector)
-    FK(idFuncionario) -> funcionarios(idFuncionario)
-    FK(idEvento, idEstadio, idSector) -> evento_habilita_sector(idEvento, idEstadio, idSector)
+    FK(idFuncionario) -> funcionarios(usuarioId)
+    FK(idEvento, idEstadio, idSector) -> evento_habilita_sector(idEvento, idEstadio,idSector)
 
 dispositivos_escaneo(idDispositivo, idFuncionario)
     PK(idDispositivo)
-    FK(idFuncionario) -> funcionarios(idFuncionario)
+    FK(idFuncionario) -> funcionarios(usuarioId)
 
 tasa_comision(id_tasa, tasa, fecha_desde)
 PK(id_tasa)
