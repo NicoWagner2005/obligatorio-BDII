@@ -76,6 +76,12 @@ Comprende el registro de dispositivos autorizados, su vinculacion obligatoria a 
 
 Comprende el escaneo, verificacion, consumo irreversible de entradas y registro completo de auditoria del acceso.
 
+#### Aclaracion sobre el scanner QR
+
+El scanner QR es una funcionalidad de la interfaz del funcionario de validacion. Antes de escanear, el funcionario debe seleccionar uno de sus dispositivos autorizados. Al iniciar el scanner, el navegador solicita permiso de camara y usa la API de lectura de codigos QR disponible en el cliente. Si la camara, el permiso o la API del navegador no estan disponibles, el sistema permite ingresar manualmente el token mostrado junto al QR.
+
+El QR no valida la entrada por si mismo: solo transporta el token dinamico activo de la entrada. Cuando el scanner detecta un QR, la interfaz extrae el token, detiene la camara y envia el token junto con el dispositivo seleccionado al servidor. La validacion definitiva verifica que el dispositivo pertenezca al funcionario, que el token exista y no haya expirado, que la venta este paga, que la entrada no haya sido consumida y que el funcionario este asignado al sector correspondiente. Si la validacion es exitosa, la entrada queda consumida de forma irreversible.
+
 ### BUC-10: Consultar reportes y estadisticas
 
 Comprende la visualizacion de eventos con mas entradas vendidas y el ranking de mayores compradores.
@@ -268,6 +274,8 @@ Comprende la visualizacion de eventos con mas entradas vendidas y el ranking de 
 
 - RF-78: El sistema debe permitir escanear entradas dinamicas.
 - RF-79: El sistema debe verificar la validez del token o QR activo al momento del escaneo.
+- RF-79.1: El sistema debe permitir ingreso manual del token QR cuando el navegador no soporte escaneo por camara o el permiso de camara no este disponible.
+- RF-79.2: El sistema debe detener el scanner al detectar un QR y procesar un unico token por intento de validacion.
 - RF-80: El sistema debe verificar que la entrada corresponda al evento que se esta validando.
 - RF-81: El sistema debe verificar que la entrada corresponda a un sector habilitado del evento.
 - RF-82: El sistema debe verificar que la entrada no haya sido consumida previamente.
@@ -309,5 +317,4 @@ Comprende la visualizacion de eventos con mas entradas vendidas y el ranking de 
 - RNF-14: La solucion debe preservar consistencia ante operaciones concurrentes de compra, transferencia y validacion.
 
 ---
-
 

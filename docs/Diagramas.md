@@ -568,12 +568,24 @@ sequenceDiagram
 sequenceDiagram
     actor Funcionario
     participant UI as ValidarEntrada.razor
+    participant Browser as Navegador
     participant FuncionarioService
     participant CurrentUserContext
     participant FuncionarioDao
     participant DB as PostgreSQL
 
-    Funcionario->>UI: Escanea QR dinamico
+    Funcionario->>UI: Selecciona dispositivo autorizado
+    Funcionario->>UI: Inicia scanner QR
+    UI->>Browser: Solicita camara y lector QR
+    alt Camara y lector QR disponibles
+        Browser-->>UI: Stream de video
+        UI->>UI: Lee frames hasta detectar QR
+        Funcionario->>UI: Apunta camara al QR dinamico
+        UI->>UI: Extrae token y detiene camara
+    else Sin soporte o permiso de camara
+        UI-->>Funcionario: Informa error y permite ingreso manual
+        Funcionario->>UI: Ingresa token QR manualmente
+    end
     UI->>FuncionarioService: ValidarEntradaAsync(codigoToken, idDispositivo)
     FuncionarioService->>CurrentUserContext: GetRequiredFuncionarioIdAsync()
     CurrentUserContext-->>FuncionarioService: idFuncionario
