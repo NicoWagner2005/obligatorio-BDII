@@ -1,4 +1,4 @@
-# obligatorio-BDII
+# Obligatorio-BDII
 
 Proyecto del obligatorio de Bases de Datos II: sistema de ticketing para el
 Mundial 2026 con registro de usuarios, gestion de estadios/eventos, ventas,
