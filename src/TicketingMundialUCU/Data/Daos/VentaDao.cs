@@ -162,9 +162,9 @@ public class VentaDao(IConfiguration configuration) : IVentaDao
                 await connection.ExecuteAsync(
                     """
                     INSERT INTO historial_custodia_entrada
-                        (id_entrada, tipo_movimiento, fecha_movimiento, id_transferencia)
+                        (id_entrada, tipo_movimiento, fecha_movimiento)
                     VALUES
-                        (@IdEntrada, 'emision', NOW(), NULL)
+                        (@IdEntrada, 'emision', NOW())
                     """,
                     new { IdEntrada = idEntrada },
                     transaction);

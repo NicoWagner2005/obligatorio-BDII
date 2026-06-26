@@ -35,8 +35,7 @@ public record MovimientoAuditoria(
     string EmailPoseedorActual,
     string EquipoLocal,
     string EquipoVisitante,
-    DateTime FechaHoraEvento,
-    int? IdTransferencia);
+    DateTime FechaHoraEvento);
 
 public record ResumenEstadisticas(
     int TotalVentas,

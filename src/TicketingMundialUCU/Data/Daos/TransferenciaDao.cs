@@ -265,15 +265,11 @@ public class TransferenciaDao(IConfiguration configuration) : ITransferenciaDao
         await connection.ExecuteAsync(
             """
             INSERT INTO historial_custodia_entrada
-                (id_entrada, tipo_movimiento, fecha_movimiento, id_transferencia)
+                (id_entrada, tipo_movimiento, fecha_movimiento)
             VALUES
-                (@IdEntrada, 'transferencia', NOW(), @IdTransferencia)
+                (@IdEntrada, 'transferencia', NOW())
             """,
-            new
-            {
-                transferencia.IdEntrada,
-                IdTransferencia = idTransferencia
-            },
+            new { transferencia.IdEntrada },
             transaction);
 
         await transaction.CommitAsync();

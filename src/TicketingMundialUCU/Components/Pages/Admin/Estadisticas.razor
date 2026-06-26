@@ -392,7 +392,6 @@ else
                                 <th>Partido</th>
                                 <th>Poseedor actual</th>
                                 <th>Código entrada</th>
-                                <th>Transferencia</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -426,16 +425,6 @@ else
                                         <code class="ticket-code" style="font-size:.7rem">
                                             @mov.IdEntrada.ToString().ToUpper()[..8]…
                                         </code>
-                                    </td>
-                                    <td>
-                                        @if (mov.IdTransferencia.HasValue)
-                                        {
-                                            <span class="badge bg-light text-dark border">#@mov.IdTransferencia.Value</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">—</span>
-                                        }
                                     </td>
                                 </tr>
                             }

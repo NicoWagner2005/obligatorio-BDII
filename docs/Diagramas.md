@@ -294,7 +294,6 @@ erDiagram
         uuid id_entrada FK
         string tipo_movimiento
         timestamp fecha_movimiento
-        int id_transferencia FK
     }
 
     TOKENS_QR {
@@ -333,7 +332,6 @@ erDiagram
     USUARIOS_GENERALES ||--o{ TRANSFERENCIAS : solicita
     USUARIOS_GENERALES ||--o{ TRANSFERENCIAS : recibe
     ENTRADAS ||--o{ HISTORIAL_CUSTODIA_ENTRADA : registra
-    TRANSFERENCIAS ||--o| HISTORIAL_CUSTODIA_ENTRADA : origina
     ENTRADAS ||--o{ TOKENS_QR : genera
     DISPOSITIVOS_ESCANEO ||--o{ TOKENS_QR : valida
 ```

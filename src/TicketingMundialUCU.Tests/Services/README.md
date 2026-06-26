@@ -9,11 +9,11 @@ de involucrar a la base de datos real. Por ejemplo:
 - rechazar datos invalidos;
 - transformar o filtrar datos antes de guardarlos;
 - devolver el resultado correcto;
-- llamar al repositorio con los argumentos correctos;
-- no llamar al repositorio cuando una validacion falla;
+- llamar al DAO con los argumentos correctos;
+- no llamar al DAO cuando una validacion falla;
 - traducir errores tecnicos a mensajes comprensibles.
 
-Actualmente hay **45 casos de prueba**. Un metodo marcado con `[Theory]` cuenta
+Actualmente hay **81 casos de prueba**. Un metodo marcado con `[Theory]` cuenta
 como varios casos porque se ejecuta una vez por cada `[InlineData]`.
 
 ## Herramientas utilizadas
@@ -23,7 +23,7 @@ El proyecto de tests usa:
 | Herramienta | Funcion |
 | --- | --- |
 | xUnit | Descubre y ejecuta los tests. Proporciona `[Fact]`, `[Theory]` y `Assert`. |
-| NSubstitute | Crea implementaciones simuladas de los repositorios y verifica sus llamadas. |
+| NSubstitute | Crea implementaciones simuladas de los DAOs y verifica sus llamadas. |
 | EF Core InMemory | Proporciona almacenamiento temporal para probar ASP.NET Core Identity sin PostgreSQL. |
 | Microsoft.NET.Test.Sdk | Integra los tests con `dotnet test` y los IDE. |
 | coverlet.collector | Permite recopilar cobertura de codigo. |
@@ -34,25 +34,30 @@ Las dependencias se encuentran en `../TicketingMundialUCU.Tests.csproj`.
 
 | Archivo | Tipo principal | Dependencias durante el test | Casos |
 | --- | --- | --- | ---: |
-| `VentaServiceTests.cs` | Unitario | `IVentaRepository` simulado | 8 |
-| `EventoServiceTests.cs` | Unitario | `IEventoRepository` e `IEstadioRepository` simulados | 11 |
-| `EstadioServiceTests.cs` | Unitario | `IEstadioRepository` simulado | 7 |
-| `UserPhoneServiceTests.cs` | Unitario | `IUserPhoneRepository` simulado | 4 |
+| `VentaServiceTests.cs` | Unitario | `IVentaDao` e `IEntradaDao` simulados | 10 |
+| `EventoServiceTests.cs` | Unitario | `IEventoDao`, `IEstadioDao` y contexto de administrador simulados | 15 |
+| `EstadioServiceTests.cs` | Unitario | `IEstadioDao` y contexto de administrador simulados | 6 |
+| `UserPhoneServiceTests.cs` | Unitario | `IUserPhoneDao` simulado | 4 |
 | `UserRolesTests.cs` | Unitario puro | Sin dependencias | 6 |
-| `UserRegistrationServiceTests.cs` | Integracion parcial | Identity y EF InMemory reales; repositorios propios simulados | 9 |
-| **Total** | | | **45** |
+| `UserRegistrationServiceTests.cs` | Integracion parcial | Identity y EF InMemory reales; DAOs propios simulados | 11 |
+| `QrCodeServiceTests.cs` | Unitario | Sin dependencias externas | 2 |
+| `TokenQrServiceTests.cs` | Unitario | `ITokenQrDao` simulado | 3 |
+| `TokenQrRefreshWorkerTests.cs` | Unitario | DI real acotada y `ITokenQrDao` simulado | 1 |
+| `TransferenciaServiceTests.cs` | Unitario | `ITransferenciaDao` simulado | 10 |
+| `FuncionarioServiceTests.cs` | Unitario | `IFuncionarioDao` e `ICurrentUserContext` simulados | 13 |
+| **Total** | | | **81** |
 
 ## Tipos de test utilizados
 
 ### Tests unitarios
 
 La mayoria son tests unitarios. Prueban una clase de servicio aislada y
-reemplazan sus repositorios por substitutes de NSubstitute.
+reemplazan sus DAOs por substitutes de NSubstitute.
 
 Ejemplo conceptual:
 
 ```text
-Test -> servicio real -> repositorio simulado
+Test -> servicio real -> DAO simulado
 ```
 
 Pertenecen a este grupo:
@@ -62,6 +67,11 @@ Pertenecen a este grupo:
 - `EstadioServiceTests.cs`
 - `UserPhoneServiceTests.cs`
 - `UserRolesTests.cs`
+- `QrCodeServiceTests.cs`
+- `TokenQrServiceTests.cs`
+- `TokenQrRefreshWorkerTests.cs`
+- `TransferenciaServiceTests.cs`
+- `FuncionarioServiceTests.cs`
 
 Estos tests son rapidos y deterministas porque no necesitan red, PostgreSQL ni
 datos compartidos.
@@ -74,12 +84,12 @@ datos compartidos.
 Test -> UserRegistrationService real
      -> UserManager, RoleManager e Identity reales
      -> EF Core InMemory
-     -> repositorios propios simulados
+     -> DAOs propios simulados
 ```
 
 Es una integracion parcial porque prueba la colaboracion real con ASP.NET Core
 Identity, pero no usa PostgreSQL ni las implementaciones reales de
-`IUserRepository` e `IUserPhoneRepository`.
+`IUserDao` e `IUserPhoneDao`.
 
 ## Patron de testing
 
@@ -111,7 +121,7 @@ var idVenta = await _service.ComprarEntradasAsync("usuario-1", items);
 ### Assert: comprobar
 
 Se verifica el resultado observable y, cuando es relevante, la colaboracion con
-el repositorio.
+el DAO.
 
 ```csharp
 Assert.Equal(37, idVenta);
@@ -153,9 +163,9 @@ Esta segunda clase de asercion permite demostrar que:
 - una operacion valida intenta persistir la informacion correcta;
 - una operacion invalida termina antes de acceder a persistencia;
 - una dependencia se llama exactamente una vez;
-- los datos fueron normalizados o filtrados antes de enviarse al repositorio.
+- los datos fueron normalizados o filtrados antes de enviarse al DAO.
 
-No demuestra que el repositorio real o su SQL funcionen. Para eso se necesitan
+No demuestra que el DAO real o su SQL funcionen. Para eso se necesitan
 tests de integracion contra PostgreSQL.
 
 ## Conceptos de xUnit usados
@@ -166,7 +176,7 @@ Representa un caso sin parametros.
 
 ```csharp
 [Fact]
-public async Task EliminarEstadio_delega_la_eliminacion_al_repositorio()
+public async Task EliminarEstadio_delega_la_eliminacion_al_dao()
 {
     await _service.EliminarEstadioAsync(8);
 
@@ -222,17 +232,17 @@ Assert.Equal("Mensaje esperado", exception.Message);
 ### Crear un substitute
 
 ```csharp
-private readonly IEventoRepository _repository =
-    Substitute.For<IEventoRepository>();
+private readonly IEventoDao _dao =
+    Substitute.For<IEventoDao>();
 ```
 
 NSubstitute crea en tiempo de ejecucion un objeto que implementa la interfaz.
-No ejecuta el repositorio real.
+No ejecuta el DAO real.
 
 ### Configurar una respuesta
 
 ```csharp
-_repository.ExisteSuperposicionAsync(1, fecha, null).Returns(true);
+_dao.ExisteSuperposicionAsync(1, fecha, null).Returns(true);
 ```
 
 Cuando el servicio real haga esa llamada, el substitute devolvera `true`.
@@ -241,7 +251,7 @@ En ese momento el substitute esta actuando como un **stub**.
 ### Simular una excepcion
 
 ```csharp
-_repository.CreateEquipoAsync("Uruguay")
+_dao.CreateEquipoAsync("Uruguay")
     .Returns(Task.FromException(new Exception("unique constraint")));
 ```
 
@@ -250,7 +260,7 @@ Esto permite probar como reacciona el servicio ante un error de una dependencia.
 ### Verificar una llamada
 
 ```csharp
-await _repository.Received(1).DeleteEstadioAsync(8);
+await _dao.Received(1).DeleteEstadioAsync(8, "México");
 ```
 
 Comprueba que el metodo recibio exactamente una llamada con ese argumento. En
@@ -259,7 +269,7 @@ esta comprobacion el substitute esta actuando como un **mock**.
 ### Verificar que no hubo una llamada
 
 ```csharp
-await _repository.DidNotReceive().CreateEventoAsync(
+await _dao.DidNotReceive().CreateEventoAsync(
     Arg.Any<DateTime>(),
     Arg.Any<string>(),
     Arg.Any<int>(),
@@ -280,7 +290,7 @@ Arg.Is<IEnumerable<string?>>(telefonos =>
     telefonos.SequenceEqual(new[] { "+598 91 234 567", "2900 0000" }))
 ```
 
-Se usa `Arg.Is` cuando el contenido enviado al repositorio forma parte del
+Se usa `Arg.Is` cuando el contenido enviado al DAO forma parte del
 comportamiento que se quiere garantizar.
 
 ## Convencion para nombrar tests
@@ -305,17 +315,17 @@ El nombre debe explicar el escenario sin obligar a leer la implementacion.
 
 ### `VentaServiceTests.cs`
 
-Tipo: **unitario**, con `IVentaRepository` simulado.
+Tipo: **unitario**, con `IVentaDao` e `IEntradaDao` simulados.
 
 La clase crea un substitute compartido y construye un `VentaService` real:
 
 ```csharp
-private readonly IVentaRepository _repository =
-    Substitute.For<IVentaRepository>();
+private readonly IVentaDao _dao = Substitute.For<IVentaDao>();
+private readonly IEntradaDao _entradaDao = Substitute.For<IEntradaDao>();
 
 public VentaServiceTests()
 {
-    _service = new VentaService(_repository);
+    _service = new VentaService(_dao, _entradaDao);
 }
 ```
 
@@ -335,7 +345,7 @@ Casos cubiertos:
    - Comprueba la regla de maximo cinco entradas por transaccion.
 
 3. `ComprarEntradas_valida_filtra_cantidades_y_usa_la_tasa_vigente`
-   - Configura una tasa y un identificador de venta devuelto por el repositorio.
+   - Configura una tasa y un identificador de venta devuelto por el DAO.
    - Incluye un item con cantidad cero.
    - Comprueba que el servicio devuelva el identificador `37`.
    - Comprueba que sólo los items positivos lleguen a `CreateVentaAsync`.
@@ -343,18 +353,24 @@ Casos cubiertos:
 
 4. `ActualizarEstadoVenta_con_estado_valido_actualiza_la_venta`
    - Se ejecuta para `"confirmada"` y `"paga"`.
-   - Comprueba que ambos estados sean enviados al repositorio.
+   - Comprueba que ambos estados sean enviados al DAO.
 
 5. `ActualizarEstadoVenta_con_estado_invalido_rechaza_la_operacion`
    - Se ejecuta para `"pendiente"`, `"cancelada"` y `""`.
    - Comprueba la excepcion y su mensaje.
    - Comprueba que no se actualice ninguna venta.
 
-Total: **8 casos ejecutados**.
+6. `GetEntradasByUsuario_delega_en_entrada_dao`
+   - Comprueba que la consulta de entradas de usuario delegue en `IEntradaDao`.
+
+7. `GetDetallesByVenta_delega_en_entrada_dao`
+   - Comprueba que el detalle de una venta delegue en `IEntradaDao`.
+
+Total: **10 casos ejecutados**.
 
 ### `EventoServiceTests.cs`
 
-Tipo: **unitario**, con `IEventoRepository` e `IEstadioRepository` simulados.
+Tipo: **unitario**, con `IEventoDao`, `IEstadioDao` y contexto de administrador simulados.
 
 Casos cubiertos:
 
@@ -374,13 +390,13 @@ Casos cubiertos:
    - Comprueba que todos los precios deban ser mayores que cero.
 
 4. `ProgramarEvento_superpuesto_rechaza_la_operacion`
-   - Configura el repositorio para informar una superposicion.
+   - Configura el DAO para informar una superposicion.
    - Comprueba la excepcion.
    - Comprueba que no se intente crear el evento.
 
 5. `ProgramarEvento_valido_devuelve_el_identificador_creado`
    - Configura que no existe superposicion.
-   - Configura que el repositorio devuelva el identificador `25`.
+   - Configura que el DAO devuelva el identificador `25`.
    - Comprueba el identificador retornado y todos los argumentos de creacion.
 
 6. `ActualizarEvento_excluye_el_evento_actual_al_buscar_superposicion`
@@ -393,42 +409,43 @@ Casos cubiertos:
    - Simula un error de restriccion unica.
    - Comprueba que el detalle tecnico se traduzca a un mensaje de negocio.
 
-Total: **11 casos ejecutados**.
+Tambien cubre fecha/hora anterior al momento actual, hora de hoy ya pasada,
+actualizacion de evento vencida y estadio fuera de la jurisdiccion del
+administrador.
+
+Total: **15 casos ejecutados**.
 
 ### `EstadioServiceTests.cs`
 
-Tipo: **unitario**, con `IEstadioRepository` simulado.
+Tipo: **unitario**, con `IEstadioDao` y contexto de administrador simulados.
 
 Casos cubiertos:
 
-1. `RegistrarEstadio_sin_pais_rechaza_la_operacion`
-   - Envia un pais compuesto por espacios.
-   - Comprueba la excepcion y que no se cree el estadio.
-
-2. `RegistrarEstadio_con_capacidad_no_positiva_rechaza_la_operacion`
+1. `RegistrarEstadio_con_capacidad_no_positiva_rechaza_la_operacion`
    - Se ejecuta con capacidad `0` y `-1`.
    - Comprueba que cada sector deba tener capacidad positiva.
 
-3. `RegistrarEstadio_con_datos_validos_guarda_el_estadio`
+2. `RegistrarEstadio_usa_el_pais_del_administrador`
    - Envia cuatro sectores validos.
-   - Comprueba que los datos lleguen al repositorio una vez.
+   - Comprueba que el estadio se cree en el pais sede del administrador.
+
+3. `ActualizarEstadio_fuera_de_jurisdiccion_rechaza_la_operacion`
+   - Simula que el DAO no actualiza el estadio por pais sede.
+   - Comprueba que se informe una operacion no autorizada.
 
 4. `ActualizarEstadio_con_capacidad_no_positiva_rechaza_la_operacion`
    - Agrega un sector con capacidad cero.
    - Comprueba la excepcion y que no se actualice el estadio.
 
-5. `AgregarPais_duplicado_devuelve_un_mensaje_claro`
-   - Simula el texto de un error por clave duplicada.
-   - Comprueba que el servicio entregue un mensaje de negocio.
+5. `EliminarEstadio_fuera_de_jurisdiccion_rechaza_la_operacion`
+   - Simula que el DAO no elimina el estadio por pais sede.
+   - Comprueba que se informe una operacion no autorizada.
 
-6. `EliminarEstadio_delega_la_eliminacion_al_repositorio`
-   - Comprueba que eliminar el estadio `8` llame al repositorio con ese ID.
-
-Total: **7 casos ejecutados**.
+Total: **6 casos ejecutados**.
 
 ### `UserPhoneServiceTests.cs`
 
-Tipo: **unitario**, con `IUserPhoneRepository` simulado.
+Tipo: **unitario**, con `IUserPhoneDao` simulado.
 
 Casos cubiertos:
 
@@ -446,7 +463,7 @@ Casos cubiertos:
 3. `UpdatePhoneNumbers_with_too_long_number_rejects_update`
    - Envia un telefono de 21 caracteres.
    - Comprueba el limite de 20 caracteres.
-   - Comprueba que el repositorio no reemplace la lista.
+   - Comprueba que el DAO no reemplace la lista.
 
 4. `UpdatePhoneNumbers_with_invalid_number_rejects_update`
    - Envia un texto que no cumple la validacion de telefono.
@@ -475,7 +492,7 @@ Total: **6 casos ejecutados**.
 ### `UserRegistrationServiceTests.cs`
 
 Tipo: **integracion parcial de servicio**, con Identity real, EF Core InMemory y
-repositorios propios simulados.
+DAOs propios simulados.
 
 Cada test llama a `CrearContexto`, que:
 
@@ -485,7 +502,7 @@ Cada test llama a `CrearContexto`, que:
 4. registra Identity, roles y stores de Entity Framework;
 5. construye un `ServiceProvider` y un scope;
 6. obtiene `UserManager`, `RoleManager` e `IUserStore` reales;
-7. crea substitutes para los repositorios propios;
+7. crea substitutes para los DAOs propios;
 8. construye el servicio real.
 
 El nombre de base contiene un `Guid`, lo que impide que los datos de un test se
@@ -510,15 +527,25 @@ Casos cubiertos:
    - Comprueba que el resultado sea exitoso.
    - Busca al usuario mediante el `UserManager` real.
    - Comprueba que tenga el rol esperado.
-   - Comprueba todos los datos enviados a `IUserRepository`.
+   - Comprueba todos los datos enviados a `IUserDao`.
    - Comprueba que se agregue el telefono.
 
 4. `RegistrarUsuario_sin_telefono_no_agrega_un_telefono_vacio`
    - Envia un telefono compuesto por espacios.
    - Comprueba que el registro sea exitoso.
-   - Comprueba que no se llame al repositorio de telefonos.
+   - Comprueba que no se llame al DAO de telefonos.
 
-5. `RegistrarUsuario_con_dato_duplicado_elimina_identity_y_explica_el_error`
+5. `RegistrarAdministrador_sin_pais_sede_no_crea_el_usuario`
+   - Envia un administrador sin pais sede asignado.
+   - Comprueba un `IdentityResult` fallido con codigo `InvalidAdministratorCountry`.
+   - Comprueba que Identity no contenga al usuario.
+
+6. `RegistrarAdministrador_con_pais_no_catalogado_no_crea_el_usuario`
+   - Envia un pais sede inexistente.
+   - Comprueba un `IdentityResult` fallido con codigo `InvalidAdministratorCountry`.
+   - Comprueba que Identity no contenga al usuario.
+
+7. `RegistrarUsuario_con_dato_duplicado_elimina_identity_y_explica_el_error`
    - Se ejecuta para restricciones de documento, email y una restriccion
      desconocida.
    - Simula un `PostgresException` con codigo de violacion unica.
@@ -526,7 +553,84 @@ Casos cubiertos:
    - Comprueba el rollback compensatorio: el usuario creado en Identity es
      eliminado cuando falla la creacion del perfil.
 
-Total: **9 casos ejecutados**.
+Total: **11 casos ejecutados**.
+
+### `QrCodeServiceTests.cs`
+
+Tipo: **unitario**, sin dependencias externas.
+
+Casos cubiertos:
+
+1. `GenerateTokenQrDataUri_con_token_vacio_rechaza_la_operacion`
+   - Comprueba que no se genere un QR con `Guid.Empty`.
+
+2. `GenerateTokenQrDataUri_con_token_valido_devuelve_svg_data_uri`
+   - Comprueba que un token valido genere un `data:image/svg+xml;base64`.
+
+Total: **2 casos ejecutados**.
+
+### `TokenQrServiceTests.cs`
+
+Tipo: **unitario**, con `ITokenQrDao` simulado.
+
+Casos cubiertos:
+
+1. `RenovarTokensActivos_delega_en_el_dao`
+   - Comprueba que el servicio delegue la renovacion y devuelva la cantidad renovada.
+
+2. `GetTokenActivo_con_entrada_vacia_rechaza_la_operacion`
+   - Rechaza `Guid.Empty` y no consulta el DAO.
+
+3. `GetTokenActivo_valido_delega_en_el_dao`
+   - Comprueba que una entrada valida consulte el token activo del usuario.
+
+Total: **3 casos ejecutados**.
+
+### `TokenQrRefreshWorkerTests.cs`
+
+Tipo: **unitario**, con DI real acotada y `ITokenQrDao` simulado.
+
+Casos cubiertos:
+
+1. `StartAsync_renueva_tokens_inmediatamente_sin_esperar_intervalo`
+   - Comprueba que el worker ejecute una renovacion al iniciar, antes del primer tick.
+
+Total: **1 caso ejecutado**.
+
+### `TransferenciaServiceTests.cs`
+
+Tipo: **unitario**, con `ITransferenciaDao` simulado.
+
+Casos cubiertos:
+
+1. Solicitud sin entrada seleccionada.
+2. Solicitud sin email receptor.
+3. Solicitud valida con normalizacion de email.
+4. Consulta de cantidad de transferencias efectivas.
+5. Aceptacion con id invalido.
+6. Rechazo con id invalido.
+7. Aceptacion valida.
+8. Rechazo valido.
+
+Total: **10 casos ejecutados**.
+
+### `FuncionarioServiceTests.cs`
+
+Tipo: **unitario**, con `IFuncionarioDao` e `ICurrentUserContext` simulados.
+
+Casos cubiertos:
+
+1. Registro de dispositivo sin id.
+2. Registro valido con recorte del id.
+3. Eliminacion valida e inexistente de dispositivo.
+4. Validacion con dispositivo no autorizado.
+5. Validacion con token inexistente o expirado.
+6. Validacion de entrada ya consumida.
+7. Validacion sin asignacion al sector.
+8. Validacion con venta no paga.
+9. Validacion exitosa delegada al DAO.
+
+Total: **13 casos ejecutados**.
 
 ## Como crear tests para una funcionalidad nueva
 
@@ -680,7 +784,7 @@ Un tipo no reemplaza al otro. Cubren riesgos diferentes.
 
 La suite actual no verifica:
 
-- las implementaciones reales de los repositorios;
+- las implementaciones reales de los DAOs;
 - las consultas y comandos SQL;
 - migraciones;
 - funciones, triggers o procedimientos de PostgreSQL;
@@ -693,7 +797,7 @@ La suite actual no verifica:
 EF Core InMemory tampoco se comporta igual que PostgreSQL: no reproduce su SQL,
 sus restricciones, sus transacciones ni todos sus detalles de comparacion.
 
-Por tanto, que los 45 tests pasen significa que las reglas cubiertas se
+Por tanto, que los 81 tests pasen significa que las reglas cubiertas se
 comportan correctamente bajo las dependencias configuradas. No significa que
 todo el sistema y la base de datos esten verificados de extremo a extremo.
 

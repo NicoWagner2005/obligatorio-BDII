@@ -110,6 +110,14 @@ FK(idReceptor) -> usuarios_generales(idUsuario)
 RNE: Una entrada puede transferirse como máximo 3 veces
 RNE: idSolicitante ≠ idReceptor
 
+historial_custodia_entrada(idMovimiento, idEntrada, tipoMovimiento, fechaMovimiento)
+PK(idMovimiento)
+FK(idEntrada) -> entradas(idEntrada)
+-- idEntrada NOT NULL
+-- tipoMovimiento NOT NULL
+-- fechaMovimiento NOT NULL
+-- Dominio(tipoMovimiento) = {emision, transferencia}
+
 paises_sede(nombre)
 	PK(nombre)
 

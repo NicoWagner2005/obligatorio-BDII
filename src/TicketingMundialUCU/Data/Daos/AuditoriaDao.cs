@@ -168,8 +168,7 @@ public class AuditoriaDao(IConfiguration configuration) : IAuditoriaDao
                 u."Email"                           AS "EmailPoseedorActual",
                 COALESCE(eq_l.nombre, '—')          AS "EquipoLocal",
                 COALESCE(eq_v.nombre, '—')          AS "EquipoVisitante",
-                e.fecha_hora                        AS "FechaHoraEvento",
-                hce.id_transferencia                AS "IdTransferencia"
+                e.fecha_hora                        AS "FechaHoraEvento"
             FROM historial_custodia_entrada hce
             JOIN entradas en ON en.id_entrada = hce.id_entrada
             JOIN "AspNetUsers" u ON u."Id" = en.id_poseedor
