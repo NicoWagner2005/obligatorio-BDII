@@ -46,6 +46,7 @@ docker compose down -v
 docker compose up -d db
 dotnet run --project src/TicketingMundialUCU/TicketingMundialUCU.csproj
 ```
+El archivo .env se incluye en este repositorio únicamente para facilitar la demostración y evaluación de la aplicación. Somos conscientes de que esto constituye una mala práctica desde el punto de vista de la seguridad. En un entorno real, el archivo .env nunca debería versionarse; en su lugar, se debería incluir únicamente un archivo .env.example con las variables de entorno necesarias.
 
 ## Tests
 
